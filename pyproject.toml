@@ -25,6 +25,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
   "Topic :: Software Development",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
@@ -40,17 +41,14 @@ optional-dependencies.tests = [
 ]
 urls.Homepage = "https://github.com/matthiask/django-js-asset/"
 
-[tool.hatch.build.targets.wheel]
-packages = [
+[tool.hatch]
+build.targets.wheel.packages = [
   "js_asset",
 ]
-
-[tool.hatch.version]
-path = "js_asset/__init__.py"
+version.path = "js_asset/__init__.py"
 
 [tool.ruff]
 target-version = "py38"
-
 fix = true
 show-fixes = true
 lint.extend-select = [
