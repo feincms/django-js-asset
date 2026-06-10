@@ -74,6 +74,8 @@ class Media(forms.Media):
         return self._combine(self, other)
 
     def __radd__(self, other):
+        if not isinstance(other, forms.Media):
+            return NotImplemented
         return self._combine(other, self)
 
     # -- Rendering --------------------------------------------------------

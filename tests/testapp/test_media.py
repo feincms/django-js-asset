@@ -102,6 +102,10 @@ class MediaTest(TestCase):
     def test_adding_non_media_is_not_supported(self):
         with self.assertRaises(TypeError):
             Media() + 3
+        # The reverse case dispatches to Media.__radd__, which must also return
+        # NotImplemented (a clean TypeError) rather than raise AttributeError.
+        with self.assertRaises(TypeError):
+            3 + Media()
 
     def test_from_media_wraps_existing_instance(self):
         plain = DjangoMedia(
