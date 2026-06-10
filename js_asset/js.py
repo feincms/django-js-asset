@@ -27,14 +27,21 @@ class CSS:
     def __hash__(self):
         return hash(self.__str__())
 
-    def __str__(self):
+    def render(self, *, nonce=""):
+        nonce_attr = mark_safe(flatatt({"nonce": nonce})) if nonce else ""
         if self.inline:
-            return format_html('<style media="{}">{}</style>', self.media, self.src)
+            return format_html(
+                '<style media="{}"{}>{}</style>', self.media, nonce_attr, self.src
+            )
         return format_html(
-            '<link href="{}" media="{}" rel="stylesheet">',
+            '<link href="{}" media="{}"{} rel="stylesheet">',
             static_if_relative(self.src),
             self.media,
+            nonce_attr,
         )
+
+    def __str__(self):
+        return self.render()
 
 
 @html_safe
@@ -46,12 +53,16 @@ class JS:
     def __hash__(self):
         return hash(self.__str__())
 
-    def __str__(self):
+    def render(self, *, nonce=""):
+        attrs = {**self.attrs, "nonce": nonce} if nonce else self.attrs
         return format_html(
             '<script src="{}"{}></script>',
             static_if_relative(self.src),
-            mark_safe(flatatt(self.attrs)),
+            mark_safe(flatatt(attrs)),
         )
+
+    def __str__(self):
+        return self.render()
 
 
 @html_safe
@@ -63,8 +74,13 @@ class JSON:
     def __hash__(self):
         return hash(self.__str__())
 
-    def __str__(self):
+    def render(self, *, nonce=""):
+        # A type="application/json" block is data, not executed JavaScript, so
+        # it is not governed by CSP and needs no nonce.
         return json_script(self.data, self.id)
+
+    def __str__(self):
+        return self.render()
 
 
 @html_safe
@@ -72,13 +88,23 @@ class ImportMap:
     def __init__(self, importmap):
         self._importmap = importmap
 
-    def __str__(self):
+    def __eq__(self, other):
+        return isinstance(other, ImportMap) and self._importmap == other._importmap
+
+    def __hash__(self):
+        return hash(self.__str__())
+
+    def render(self, *, nonce=""):
         if self._importmap:
+            nonce_attr = mark_safe(flatatt({"nonce": nonce})) if nonce else ""
             html = json_script(self._importmap).removeprefix(
                 '<script type="application/json">'
             )
-            return mark_safe(f'<script type="importmap">{html}')
+            return mark_safe(f'<script type="importmap"{nonce_attr}>{html}')
         return ""
+
+    def __str__(self):
+        return self.render()
 
     def update(self, other):
         if isinstance(other, ImportMap):
