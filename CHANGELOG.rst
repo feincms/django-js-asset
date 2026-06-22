@@ -13,6 +13,8 @@ Next version
   fall back to ``__html__()`` exactly like ``django.forms.Media`` does; the
   nonce cannot be threaded into an opaque ``__html__`` asset, same as with stock
   Django.
+- Corrected the docs around Django 6.1 support. Thanks James Bligh!
+- Finally set up a documentation site at Read the Docs for django-js-asset.
 
 
 4.0 (2026-06-11)
