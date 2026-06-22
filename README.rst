@@ -269,14 +269,15 @@ widget media is usually built once at class-definition time -- so the nonce is
 applied when the media is rendered, not when it is constructed.
 ``js_asset.Media`` stores an optional nonce and applies it to every script and
 stylesheet it renders (a ``JSON`` block is data, not executable, and
-deliberately gets none). There are three ways to get the nonce in, depending on
+deliberately gets none). There are a few ways to get the nonce in, depending on
 your Django version.
 
 Django 6.1 and newer (built-in CSP)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Django 6.1 ships CSP support, and ``js_asset.Media`` plugs straight into it --
-no extra wiring. Configure CSP as usual:
+Django 6.1 added the ``csp_nonce_attr`` template tag with ``forms.Media``
+support, and ``js_asset.Media`` plugs straight into it -- no extra wiring.
+Configure CSP as usual:
 
 .. code-block:: python
 
@@ -314,10 +315,47 @@ calls ``media.render(attrs={"nonce": ...})`` for you:
 That single tag emits the merged import map and every script/stylesheet, each
 carrying the per-request nonce.
 
-Django 4.2 to 6.0 (with ``django-csp``)
+Django 6.0 (built-in CSP, no ``csp_nonce_attr``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Django 6.0 has the built-in CSP middleware, the ``SECURE_CSP`` setting and the
+``csp`` context processor, but not the ``csp_nonce_attr`` tag (that arrived in
+6.1). Configure CSP exactly as for `Django 6.1 and newer (built-in CSP)`_
+above; the only difference is that you apply the nonce yourself.
+
+Drop in a small tag. The built-in ``{{ csp_nonce }}`` value is lazy and reads as
+falsy until first used, so the tag wraps it in ``str()``. It also copes with a
+plain ``forms.Media`` -- ``Media(form.media)`` does **not** work, because
+``forms.Media`` copies assets from a media *definition*, not an *instance*, so
+use ``from_media``:
+
+.. code-block:: python
+
+    # yourapp/templatetags/js_asset_csp.py
+    from django import template
+    from js_asset import Media
+
+    register = template.Library()
+
+    @register.simple_tag(takes_context=True)
+    def media_with_nonce(context, media):
+        nonce = context.get("csp_nonce", "")
+        if not isinstance(media, Media):
+            media = Media.from_media(media)
+        return media.with_nonce(str(nonce)).render()
+
+.. code-block:: html
+
+    {% load js_asset_csp %}
+    {% media_with_nonce form.media %}
+
+``with_nonce()`` returns a *copy*, so a shared/cached widget ``media`` object is
+never mutated and one request's nonce can never leak into another.
+
+Django 4.2 to 5.x (with ``django-csp``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Older Django has no built-in nonce, so use the third-party `django-csp
+Older Django has no built-in CSP, so use the third-party `django-csp
 <https://django-csp.readthedocs.io/>`__ package. Install it, add its
 middleware, and make sure the nonce is part of the relevant directives.
 
@@ -372,32 +410,14 @@ render the copy:
 
     {{ form_media }}
 
-``with_nonce()`` returns a *copy*, so a shared/cached widget ``media`` object is
-never mutated and one request's nonce can never leak into another. If you would
-rather stay in the template, drop in a small tag (the ``request`` context
-processor must be enabled). It also copes with a plain ``forms.Media`` --
-``Media(form.media)`` does **not** work, because ``forms.Media`` copies assets
-from a media *definition*, not an *instance*, so use ``from_media``:
+If you would rather stay in the template, the ``media_with_nonce()`` approach
+is exactly the same as for `Django 6.0 (built-in CSP, no csp_nonce_attr)`_ above,
+only its *source* changes. The template tag's nonce line can read
+``request.csp_nonce`` (the ``request`` context processor must be enabled):
 
 .. code-block:: python
 
-    # yourapp/templatetags/js_asset_csp.py
-    from django import template
-    from js_asset import Media
-
-    register = template.Library()
-
-    @register.simple_tag(takes_context=True)
-    def media_with_nonce(context, media):
-        nonce = getattr(context.get("request"), "csp_nonce", "")
-        if not isinstance(media, Media):
-            media = Media.from_media(media)
-        return media.with_nonce(nonce).render()
-
-.. code-block:: html
-
-    {% load js_asset_csp %}
-    {% media_with_nonce form.media %}
+    nonce = getattr(context.get("request"), "csp_nonce", "")
 
 Anywhere: set the nonce explicitly
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
