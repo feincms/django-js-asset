@@ -272,10 +272,10 @@ stylesheet it renders (a ``JSON`` block is data, not executable, and
 deliberately gets none). There are three ways to get the nonce in, depending on
 your Django version.
 
-Django 6.2 and newer (built-in CSP)
+Django 6.1 and newer (built-in CSP)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Django 6.2 ships CSP support, and ``js_asset.Media`` plugs straight into it --
+Django 6.1 ships CSP support, and ``js_asset.Media`` plugs straight into it --
 no extra wiring. Configure CSP as usual:
 
 .. code-block:: python
@@ -314,7 +314,7 @@ calls ``media.render(attrs={"nonce": ...})`` for you:
 That single tag emits the merged import map and every script/stylesheet, each
 carrying the per-request nonce.
 
-Django 4.2 to 6.1 (with ``django-csp``)
+Django 4.2 to 6.0 (with ``django-csp``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Older Django has no built-in nonce, so use the third-party `django-csp
