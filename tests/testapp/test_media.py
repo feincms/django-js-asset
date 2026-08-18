@@ -1,8 +1,9 @@
 from django.forms import Media as DjangoMedia
 from django.test import TestCase
 from django.utils.html import html_safe
+from django.utils.safestring import mark_safe
 
-from js_asset import CSS, JS, JSON, ImportMap, Media
+from js_asset import CSS, JS, JSON, ImportMap, Media, Script, Stylesheet
 
 
 @html_safe
@@ -18,6 +19,161 @@ class HTMLOnlyAsset:
 
     def __str__(self):
         return self._markup
+
+
+# Django 6.1 normalizes *every* js/css string -- html-safe ones included --
+# into ``Script``/``Stylesheet`` inside ``forms.Media.__init__`` (ticket #37262,
+# fixed on the 6.1.x branch for 6.1.1). Our ``Media`` overrides the normalizers
+# so media built through *our* class is unaffected, but assets adopted from a
+# foreign ``forms.Media`` arrive already mangled. This probe marks that window.
+_PROBE = mark_safe('<script src="/probe.js"></script>')
+DJANGO_KEEPS_HTML_SAFE_STRINGS = str(DjangoMedia(js=[_PROBE])) == _PROBE
+
+
+HTML_SAFE_JS = mark_safe('<script defer src="https://example.org/asset.js"></script>')
+HTML_SAFE_CSS = mark_safe(
+    '<link href="https://example.org/asset.css" rel="stylesheet">'
+)
+
+# (label, asset, rendering without a nonce, rendering with nonce="n0nce").
+#
+# One row per kind of asset a ``Media`` can carry. Add a row whenever a new
+# asset kind appears -- this is the guard against a rendering branch (such as
+# the "is it a bare path?" test in ``Media._render_js``/``._render_css``)
+# quietly mishandling one of them.
+JS_ASSETS = [
+    (
+        "bare path string",
+        "app.js",
+        '<script src="/static/app.js"></script>',
+        '<script src="/static/app.js" nonce="n0nce"></script>',
+    ),
+    (
+        "JS factory",
+        JS("app.js"),
+        '<script src="/static/app.js"></script>',
+        '<script src="/static/app.js" nonce="n0nce"></script>',
+    ),
+    (
+        "JS factory with attributes",
+        JS("app.js", {"type": "module"}),
+        '<script src="/static/app.js" type="module"></script>',
+        '<script src="/static/app.js" nonce="n0nce" type="module"></script>',
+    ),
+    (
+        "Script object",
+        Script("app.js"),
+        '<script src="/static/app.js"></script>',
+        '<script src="/static/app.js" nonce="n0nce"></script>',
+    ),
+    (
+        "JSON block",
+        JSON({"a": 1}, id="cfg"),
+        # Data, not executed script: no nonce either way.
+        '<script id="cfg" type="application/json">{"a": 1}</script>',
+        '<script id="cfg" type="application/json">{"a": 1}</script>',
+    ),
+    (
+        "ImportMap",
+        ImportMap({"imports": {"a": "/static/a.js"}}),
+        '<script type="importmap">{"imports": {"a": "/static/a.js"}}</script>',
+        (
+            '<script type="importmap" nonce="n0nce">'
+            '{"imports": {"a": "/static/a.js"}}</script>'
+        ),
+    ),
+    (
+        "object with only __html__",
+        HTMLOnlyAsset('<script src="/bundle.js"></script>'),
+        # Opaque markup: rendered verbatim, and the nonce cannot be threaded in
+        # (same as stock ``forms.Media``).
+        '<script src="/bundle.js"></script>',
+        '<script src="/bundle.js"></script>',
+    ),
+    (
+        "html-safe string",
+        HTML_SAFE_JS,
+        # A ``SafeString`` is a ``str``, but it is a complete tag rather than a
+        # path: it must never be resolved through ``static()``.
+        HTML_SAFE_JS,
+        HTML_SAFE_JS,
+    ),
+]
+
+CSS_ASSETS = [
+    (
+        "bare path string",
+        "app.css",
+        '<link href="/static/app.css" media="all" rel="stylesheet">',
+        '<link href="/static/app.css" media="all" nonce="n0nce" rel="stylesheet">',
+    ),
+    (
+        "CSS factory",
+        CSS("app.css"),
+        '<link href="/static/app.css" media="all" rel="stylesheet">',
+        '<link href="/static/app.css" media="all" nonce="n0nce" rel="stylesheet">',
+    ),
+    (
+        # Django's ``Stylesheet`` has no implicit ``media``; unlike the ``CSS``
+        # factory it only emits the attribute when one is passed. The dict key
+        # it is filed under does not add one.
+        "Stylesheet object",
+        Stylesheet("app.css"),
+        '<link href="/static/app.css" rel="stylesheet">',
+        '<link href="/static/app.css" nonce="n0nce" rel="stylesheet">',
+    ),
+    (
+        "inline CSS",
+        CSS("body{color:red}", inline=True),
+        '<style media="all">body{color:red}</style>',
+        '<style media="all" nonce="n0nce">body{color:red}</style>',
+    ),
+    (
+        "object with only __html__",
+        HTMLOnlyAsset('<link href="/bundle.css" rel="stylesheet">'),
+        '<link href="/bundle.css" rel="stylesheet">',
+        '<link href="/bundle.css" rel="stylesheet">',
+    ),
+    (
+        "html-safe string",
+        HTML_SAFE_CSS,
+        HTML_SAFE_CSS,
+        HTML_SAFE_CSS,
+    ),
+]
+
+
+class AssetRenderingTest(TestCase):
+    """
+    Exhaustive per-asset-kind rendering, with and without a CSP nonce.
+    """
+
+    def _check(self, rows, kwargs_for):
+        for label, asset, plain, with_nonce in rows:
+            with self.subTest(asset=label):
+                self.assertEqual(Media(**kwargs_for(asset)).render(), plain)
+                self.assertEqual(
+                    Media(nonce="n0nce", **kwargs_for(asset)).render(), with_nonce
+                )
+
+    def test_js_assets(self):
+        self._check(JS_ASSETS, lambda asset: {"js": [asset]})
+
+    def test_css_assets(self):
+        self._check(CSS_ASSETS, lambda asset: {"css": {"all": [asset]}})
+
+    def test_matches_django_rendering(self):
+        # Our rendering must not drift from stock ``forms.Media`` for the asset
+        # kinds Django itself understands -- this is what catches a future
+        # change to Django's normalization or tag format that our overridden
+        # ``_normalize_{js,css}`` would otherwise silently skip. (Excludes
+        # ``ImportMap``, which we deliberately merge and hoist, and html-safe
+        # strings, which Django 6.1 itself gets wrong.)
+        kwargs = {
+            "css": {"all": ["a.css", CSS("b.css"), Stylesheet("c.css")]},
+            "js": ["a.js", JS("b.js"), Script("c.js"), JS("d.js", {"defer": True})],
+        }
+        self.assertEqual(str(Media(**kwargs)), str(DjangoMedia(**kwargs)))
 
 
 class MediaTest(TestCase):
@@ -181,3 +337,47 @@ class MediaTest(TestCase):
             '<script src="/static/app.js" nonce="xyz"></script>',
             request_media.render(),
         )
+
+    def test_html_safe_strings_dedupe_and_merge(self):
+        # Mirrors Django's own #37262 tests: html-safe strings survive
+        # deduplication and media merging alongside regular path assets.
+        first = Media(
+            css={"all": [HTML_SAFE_CSS, "a.css"]},
+            js=["a.js", HTML_SAFE_JS],
+        )
+        second = Media(
+            nonce="n0nce",
+            css={"all": [HTML_SAFE_CSS]},
+            js=[HTML_SAFE_JS, JS("b.js")],
+        )
+        merged = first + second
+
+        self.assertEqual(merged.nonce, "n0nce")
+        self.assertEqual(
+            merged.render(),
+            f"{HTML_SAFE_CSS}\n"
+            '<link href="/static/a.css" media="all" nonce="n0nce" rel="stylesheet">\n'
+            '<script src="/static/a.js" nonce="n0nce"></script>\n'
+            f"{HTML_SAFE_JS}\n"
+            '<script src="/static/b.js" nonce="n0nce"></script>',
+        )
+
+    def test_html_safe_strings_normalized_through_our_class(self):
+        # We override ``_normalize_{js,css}`` so html-safe strings survive
+        # construction even on Django 6.1, whose own normalizers mangle them.
+        self.assertEqual(Media(js=[HTML_SAFE_JS]).render(), HTML_SAFE_JS)
+        self.assertEqual(
+            Media(media=type("Def", (), {"js": [HTML_SAFE_JS]})).render(),
+            HTML_SAFE_JS,
+        )
+
+    def test_html_safe_strings_adopted_from_foreign_media(self):
+        # ``from_media`` adopts assets a plain ``forms.Media`` already
+        # normalized, so on Django 6.1 the damage is done before we see them.
+        # Nothing to fix from here -- just pin which side the boundary is on.
+        adopted = Media.from_media(DjangoMedia(js=[HTML_SAFE_JS]))
+        if DJANGO_KEEPS_HTML_SAFE_STRINGS:
+            self.assertEqual(adopted.render(), HTML_SAFE_JS)
+        else:
+            self.assertNotEqual(adopted.render(), HTML_SAFE_JS)
+            self.assertEqual(adopted.render(), str(DjangoMedia(js=[HTML_SAFE_JS])))

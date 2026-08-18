@@ -32,6 +32,30 @@ The matrix lives in `tox.ini` (`tests/manage.py test testapp`).
   `Script`/`Stylesheet` in `Media._js`/`._css`; older Django keeps raw strings.
   `media.py:_render_{js,css}` wrap any leftover strings via `JS()`/`CSS()`, so
   `_render_asset` always sees a `MediaAsset` (or `JSON`/`ImportMap`).
+- **Never test an asset with `isinstance(item, str)`.** `SafeString` is a `str`
+  subclass, so `mark_safe('<script src=...></script>')` — a complete tag that
+  must render verbatim — would be resolved through `static()` and
+  percent-encoded. The predicate is `hasattr(item, "__html__")`; only bare
+  paths get wrapped. Django made exactly this mistake in 6.1 (ticket #37262,
+  fixed on its 6.1.x branch for 6.1.1), and we had it independently in
+  `_render_{js,css}`.
+- Because Django 6.1 mangles such strings in `forms.Media.__init__` itself,
+  `media.py` also overrides `_normalize_{js,css}` with the `__html__`
+  predicate — those hooks are called through `self`, so a subclass can fix
+  them, and `_compat` gives us `Script`/`Stylesheet` on every supported Django
+  so the wrapped output is unchanged. This covers media built *through* our
+  class; assets adopted from a foreign `forms.Media` (`from_media`, `__add__`,
+  and Django's widget `media_property`, which always instantiates
+  `forms.Media`) arrive already normalized and cannot be recovered on 6.1.
+  `test_html_safe_strings_adopted_from_foreign_media` pins that boundary via
+  the `DJANGO_KEEPS_HTML_SAFE_STRINGS` probe.
+- `tests/testapp/test_media.py` carries `JS_ASSETS`/`CSS_ASSETS`: one row per
+  asset kind, each with its exact rendering with and without a nonce. **Add a
+  row whenever a new asset kind appears** — that table is the guard against a
+  rendering branch quietly mishandling one of them.
+  `test_matches_django_rendering` compares us against stock `forms.Media` for
+  path assets; it is what catches Django changing its normalization or tag
+  format under our overrides.
 
 ## Layout
 
@@ -47,7 +71,8 @@ The matrix lives in `tox.ini` (`tests/manage.py test testapp`).
   Equality is Django's, so dedup is attribute-aware on 4.2-5.1 + 6.2+ and
   path-only on 5.2-6.1 (`test_set` derives its expectation from this).
 - `js_asset/media.py` — `Media(forms.Media)` subclass: merges embedded
-  `ImportMap`s into one tag and applies a nonce. Implements `__add__` **and**
+  `ImportMap`s into one tag, applies a nonce, and normalizes js/css entries by
+  the `__html__` predicate (see the html-safe-string note above). Implements `__add__` **and**
   `__radd__` so it keeps its type (and nonce) when combined with plain
   `forms.Media` from either side. The nonce lives on the instance (constructor
   `nonce=` or `with_nonce()` returning a copy); `render()` reads it, since

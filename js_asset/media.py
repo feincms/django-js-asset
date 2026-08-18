@@ -5,7 +5,7 @@ from django import forms
 from django.forms.utils import flatatt
 from django.utils.html import format_html, mark_safe
 
-from js_asset._compat import MediaAsset
+from js_asset._compat import MediaAsset, Script, Stylesheet
 from js_asset.js import CSS, JS, JSON, ImportMap
 
 
@@ -33,6 +33,41 @@ class Media(forms.Media):
     def __init__(self, media=None, *, nonce="", css=None, js=None):
         self.nonce = nonce
         super().__init__(media=media, css=css, js=js)
+
+    # -- Normalization ----------------------------------------------------
+
+    # ``forms.Media.__init__`` calls these through ``self``, so a subclass can
+    # override them. They only exist -- and are only reached -- on Django >=
+    # 6.1; older versions keep js/css entries as given and ``_render_{js,css}``
+    # wraps them at render time instead.
+    #
+    # Django 6.1 normalizes with ``isinstance(path, str)``, which swallows
+    # html-safe strings: a ``SafeString`` such as
+    # ``mark_safe('<script defer src="..."></script>')`` is a complete tag, but
+    # being a ``str`` subclass it got turned into a ``Script`` and resolved
+    # through ``static()`` (ticket #37262, fixed for 6.1.1). Normalizing with
+    # the ``__html__`` predicate instead keeps such entries verbatim on 6.1 too.
+    # ``Script``/``Stylesheet`` come from ``_compat``, so the wrapped output is
+    # the same on every supported Django.
+    #
+    # This can only help media built *through* this class. Assets adopted from
+    # a foreign ``forms.Media`` (``from_media``, ``__add__``, and Django's
+    # widget ``media_property``, which always instantiates ``forms.Media``) are
+    # already normalized by the time we see them.
+
+    @staticmethod
+    def _normalize_js(js):
+        return [path if hasattr(path, "__html__") else Script(path) for path in js]
+
+    @staticmethod
+    def _normalize_css(css):
+        return {
+            medium: [
+                path if hasattr(path, "__html__") else Stylesheet(path, media=medium)
+                for path in paths
+            ]
+            for medium, paths in css.items()
+        }
 
     @classmethod
     def from_media(cls, media, *, nonce=""):
@@ -108,7 +143,13 @@ class Media(forms.Media):
         for item in self._js:
             if isinstance(item, ImportMap):
                 continue
-            asset = JS(item) if isinstance(item, str) else item
+            # ``hasattr(item, "__html__")`` -- not ``isinstance(item, str)``:
+            # ``SafeString`` is a ``str`` subclass, and html-safe strings such
+            # as ``mark_safe("<script defer src=...></script>")`` are complete
+            # tags which must render verbatim instead of being resolved through
+            # ``static()``. Only bare paths are wrapped. (Django hit the same
+            # trap in 6.1, fixed for 6.1.1 -- ticket #37262.)
+            asset = item if hasattr(item, "__html__") else JS(item)
             rendered.append(self._render_asset(asset, nonce))
         return rendered
 
@@ -116,7 +157,8 @@ class Media(forms.Media):
         rendered = []
         for medium in sorted(self._css):
             for item in self._css[medium]:
-                asset = CSS(item, media=medium) if isinstance(item, str) else item
+                # See ``_render_js`` on the ``__html__`` check.
+                asset = item if hasattr(item, "__html__") else CSS(item, media=medium)
                 rendered.append(self._render_asset(asset, nonce))
         return rendered
 
