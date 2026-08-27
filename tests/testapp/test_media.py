@@ -514,3 +514,56 @@ class RenderPartsTest(TestCase):
             list(media.render_js(attrs=attrs)),
             ['<script src="/static/app.js" nonce="from-attrs"></script>'],
         )
+
+
+class GetItemTest(TestCase):
+    """
+    ``media["css"]`` / ``media["js"]`` -- reached as ``{{ media.css }}`` and
+    ``{{ media.js }}`` from templates -- must keep our type and its nonce.
+    """
+
+    def setUp(self):
+        self.media = Media(
+            nonce="n0nce",
+            css={"all": [CSS("app.css")]},
+            js=[
+                ImportMap({"imports": {"a": "/static/a.js"}}),
+                JS("app.js"),
+                ImportMap({"imports": {"b": "/static/b.js"}}),
+            ],
+        )
+
+    def test_css_subset(self):
+        subset = self.media["css"]
+        self.assertIsInstance(subset, Media)
+        self.assertEqual(subset.nonce, "n0nce")
+        self.assertEqual(
+            subset.render(),
+            '<link href="/static/app.css" media="all" nonce="n0nce" rel="stylesheet">',
+        )
+
+    def test_js_subset(self):
+        subset = self.media["js"]
+        self.assertIsInstance(subset, Media)
+        self.assertEqual(
+            subset.render(),
+            '<script type="importmap" nonce="n0nce">'
+            '{"imports": {"a": "/static/a.js", "b": "/static/b.js"}}</script>\n'
+            '<script src="/static/app.js" nonce="n0nce"></script>',
+        )
+
+    def test_unknown_media_type(self):
+        with self.assertRaises(KeyError):
+            self.media["json"]
+
+    @skipIf(nonce_attr is None, "Django < 6.1 has no built-in CSP support")
+    def test_csp_nonce_attr_on_a_subset(self):
+        # What Django's own admin templates do: {% csp_nonce_attr media.js %}.
+        nonce = DjangoLazyNonce()
+        media = Media(js=[ImportMap({"imports": {"a": "/static/a.js"}}), JS("app.js")])
+        self.assertEqual(
+            nonce_attr({"csp_nonce": nonce}, media["js"]),
+            f'<script type="importmap" nonce="{nonce}">'
+            '{"imports": {"a": "/static/a.js"}}</script>\n'
+            f'<script src="/static/app.js" nonce="{nonce}"></script>',
+        )

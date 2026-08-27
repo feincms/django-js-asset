@@ -115,6 +115,15 @@ class Media(forms.Media):
             return NotImplemented
         return self._combine(other, self)
 
+    # -- Access -----------------------------------------------------------
+
+    def __getitem__(self, name):
+        # Django's ``__getitem__`` hardcodes ``forms.Media``, so ``media["js"]``
+        # -- reached from templates as ``{{ media.js }}``, and used by the admin
+        # as ``{% csp_nonce_attr media.js %}`` -- would drop our type, and with
+        # it the nonce and the import-map merging.
+        return self.from_media(super().__getitem__(name), nonce=self.nonce)
+
     # -- Rendering --------------------------------------------------------
 
     def render(self, *, nonce=None, attrs=None):

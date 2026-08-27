@@ -34,6 +34,11 @@ Next version
 - Fixed ``js_asset.Media.render_css()`` and ``.render_js()`` -- part of
   ``forms.Media``'s public API -- rendering neither the CSP nonce nor the merged
   import map. Only the full ``render()`` did.
+- Fixed ``media["css"]`` / ``media["js"]`` -- what ``{{ media.css }}`` and
+  ``{{ media.js }}`` resolve to in templates, and what Django's admin renders
+  with ``{% csp_nonce_attr media.js %}`` -- returning a plain
+  ``django.forms.Media``, therefore losing the CSP nonce and the import-map
+  merging. They now return a ``js_asset.Media`` carrying the same nonce.
 - Corrected the docs around Django 6.1 support. Thanks James Bligh!
 - Finally set up a documentation site at Read the Docs for django-js-asset.
 
