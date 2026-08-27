@@ -1,9 +1,18 @@
+from unittest import skipIf
+
 from django.forms import Media as DjangoMedia
 from django.test import TestCase
+from django.utils.functional import SimpleLazyObject, empty
 from django.utils.html import html_safe
 from django.utils.safestring import mark_safe
 
 from js_asset import CSS, JS, JSON, ImportMap, Media, Script, Stylesheet
+
+
+try:  # Django >= 6.1
+    from django.utils.csp import LazyNonce as DjangoLazyNonce, nonce_attr
+except ImportError:
+    DjangoLazyNonce = nonce_attr = None
 
 
 @html_safe
@@ -381,3 +390,72 @@ class MediaTest(TestCase):
         else:
             self.assertNotEqual(adopted.render(), HTML_SAFE_JS)
             self.assertEqual(adopted.render(), str(DjangoMedia(js=[HTML_SAFE_JS])))
+
+
+class LazyNonce(SimpleLazyObject):
+    """
+    A stand-in for ``django.utils.csp.LazyNonce`` (Django >= 6.2), which is
+    *falsy* until the nonce has been generated so that a nonce is only added to
+    the CSP header if the template actually used it.
+    """
+
+    def __init__(self, value):
+        super().__init__(lambda: value)
+
+    def __bool__(self):
+        return self._wrapped is not empty
+
+
+class LazyNonceTest(TestCase):
+    def test_lazy_nonce_from_attrs(self):
+        # Django >= 6.2 renders media as ``media.render(attrs={"nonce": nonce})``
+        # with the lazy nonce straight from the template context. Truth-testing
+        # it says "no nonce" as long as it has not been read yet, so the nonce
+        # must be resolved instead of checked for truthiness.
+        media = Media(js=[JS("app.js")])
+        self.assertEqual(
+            media.render(attrs={"nonce": LazyNonce("l@zy")}),
+            '<script src="/static/app.js" nonce="l@zy"></script>',
+        )
+
+    def test_lazy_nonce_stored_on_the_media(self):
+        media = Media(nonce=LazyNonce("l@zy"), js=[JS("app.js")])
+        self.assertEqual(
+            media.render(),
+            '<script src="/static/app.js" nonce="l@zy"></script>',
+        )
+        self.assertEqual(
+            media.with_nonce(LazyNonce("l@zy")).render(),
+            '<script src="/static/app.js" nonce="l@zy"></script>',
+        )
+
+    def test_lazy_nonce_applied_to_importmaps(self):
+        media = Media(js=[ImportMap({"imports": {"a": "/static/a.js"}})])
+        self.assertEqual(
+            media.render(nonce=LazyNonce("l@zy")),
+            '<script type="importmap" nonce="l@zy">'
+            '{"imports": {"a": "/static/a.js"}}</script>',
+        )
+
+    def test_lazy_nonce_untouched_for_empty_media(self):
+        # Nothing to render, so the nonce must not be generated: on Django the
+        # CSP header only carries a nonce if one was actually used.
+        nonce = LazyNonce("l@zy")
+        self.assertEqual(Media().render(attrs={"nonce": nonce}), "")
+        self.assertFalse(nonce)
+
+    @skipIf(nonce_attr is None, "Django < 6.1 has no built-in CSP support")
+    def test_csp_nonce_attr_template_tag(self):
+        # The real thing, on the Django versions which have it.
+        nonce = DjangoLazyNonce()
+        html = nonce_attr(
+            {"csp_nonce": nonce},
+            Media(js=[ImportMap({"imports": {"a": "/static/a.js"}}), JS("app.js")]),
+        )
+        self.assertTrue(nonce)
+        self.assertEqual(
+            html,
+            f'<script type="importmap" nonce="{nonce}">'
+            '{"imports": {"a": "/static/a.js"}}</script>\n'
+            f'<script src="/static/app.js" nonce="{nonce}"></script>',
+        )

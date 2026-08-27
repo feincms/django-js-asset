@@ -25,6 +25,12 @@ Next version
   ``forms.Media`` -- including widget ``Media`` declarations, which Django
   always builds with ``forms.Media`` -- are already normalized before we see
   them.
+- Fixed ``js_asset.Media`` dropping the CSP nonce when rendering through
+  Django's ``{% csp_nonce_attr media %}`` template tag. The tag passes the lazy
+  ``csp_nonce`` object, which is deliberately falsy until it is first read, so
+  truth-testing it looked like "no nonce at all". Lazy nonces are now resolved
+  (still only when there is something to render, so an empty media does not
+  cause a nonce to be generated).
 - Corrected the docs around Django 6.1 support. Thanks James Bligh!
 - Finally set up a documentation site at Read the Docs for django-js-asset.
 

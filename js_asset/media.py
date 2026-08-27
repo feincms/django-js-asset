@@ -118,18 +118,32 @@ class Media(forms.Media):
     # -- Rendering --------------------------------------------------------
 
     def render(self, *, nonce=None, attrs=None):
+        nonce = self._resolve_nonce(nonce, attrs)
+        return mark_safe(
+            "\n".join(filter(None, [*self._render_css(nonce), *self._render_js(nonce)]))
+        )
+
+    def _resolve_nonce(self, nonce, attrs):
         # ``attrs`` is accepted for compatibility with Django >= 6.2, whose
         # built-in CSP integration renders media via
         # ``media.render(attrs={"nonce": nonce})`` (see the ``csp_nonce_attr``
         # template tag). Only the nonce is honoured; the stored nonce is used
         # as a fallback, since templates call ``render()`` without arguments.
-        if attrs and attrs.get("nonce"):
+        if attrs and attrs.get("nonce") is not None:
             nonce = attrs["nonce"]
         if nonce is None:
             nonce = self.nonce
-        return mark_safe(
-            "\n".join(filter(None, [*self._render_css(nonce), *self._render_js(nonce)]))
-        )
+        if type(nonce) is not str:
+            # Django's ``LazyNonce`` (the ``csp_nonce`` context value on >= 6.2)
+            # is deliberately *falsy* until it is first read, so truth-testing
+            # it -- as the rendering code below does -- would silently drop the
+            # nonce. Resolve lazy nonces to a string here instead. Only do so
+            # when there is something to render, so that rendering an empty
+            # media does not generate a nonce (and add it to the CSP header).
+            # ``isinstance`` is no use for the check: a lazy object reports the
+            # wrapped value's class -- and evaluates itself while doing so.
+            nonce = str(nonce) if any(self._js_lists) or any(self._css_lists) else ""
+        return nonce
 
     def _render_js(self, nonce):
         importmap = reduce(
