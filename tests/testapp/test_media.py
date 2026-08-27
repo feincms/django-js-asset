@@ -459,3 +459,58 @@ class LazyNonceTest(TestCase):
             '{"imports": {"a": "/static/a.js"}}</script>\n'
             f'<script src="/static/app.js" nonce="{nonce}"></script>',
         )
+
+
+class RenderPartsTest(TestCase):
+    """
+    ``render_css()``/``render_js()`` are ``forms.Media`` API in their own right;
+    they must behave like ``render()`` regarding the nonce and import maps.
+    """
+
+    def setUp(self):
+        self.media = Media(
+            nonce="n0nce",
+            css={"all": [CSS("app.css")]},
+            js=[
+                ImportMap({"imports": {"a": "/static/a.js"}}),
+                JS("app.js"),
+                ImportMap({"imports": {"b": "/static/b.js"}}),
+            ],
+        )
+
+    def test_render_css_applies_the_nonce(self):
+        self.assertEqual(
+            list(self.media.render_css()),
+            [
+                '<link href="/static/app.css" media="all" nonce="n0nce" rel="stylesheet">'
+            ],
+        )
+
+    def test_render_js_applies_the_nonce_and_merges_importmaps(self):
+        self.assertEqual(
+            list(self.media.render_js()),
+            [
+                (
+                    '<script type="importmap" nonce="n0nce">'
+                    '{"imports": {"a": "/static/a.js", "b": "/static/b.js"}}</script>'
+                ),
+                '<script src="/static/app.js" nonce="n0nce"></script>',
+            ],
+        )
+
+    def test_render_parts_accept_attrs(self):
+        media = Media(css={"all": [CSS("app.css")]}, js=[JS("app.js")])
+        attrs = {"nonce": "from-attrs"}
+        self.assertEqual(
+            list(media.render_css(attrs=attrs)),
+            [
+                (
+                    '<link href="/static/app.css" media="all" nonce="from-attrs"'
+                    ' rel="stylesheet">'
+                )
+            ],
+        )
+        self.assertEqual(
+            list(media.render_js(attrs=attrs)),
+            ['<script src="/static/app.js" nonce="from-attrs"></script>'],
+        )

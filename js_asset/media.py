@@ -123,6 +123,17 @@ class Media(forms.Media):
             "\n".join(filter(None, [*self._render_css(nonce), *self._render_js(nonce)]))
         )
 
+    def render_css(self, *, attrs=None):
+        return self._render_css(self._resolve_nonce(None, attrs))
+
+    def render_js(self, *, attrs=None):
+        # ``render_{css,js}`` are part of ``forms.Media``'s public API (and are
+        # what Django's own ``render()`` calls), so they have to apply the nonce
+        # and hoist import maps as well -- otherwise anything rendering the
+        # media through them silently loses both. The ``attrs`` keyword only
+        # exists on Django >= 6.2; accepting it keeps the signature compatible.
+        return self._render_js(self._resolve_nonce(None, attrs))
+
     def _resolve_nonce(self, nonce, attrs):
         # ``attrs`` is accepted for compatibility with Django >= 6.2, whose
         # built-in CSP integration renders media via

@@ -31,6 +31,9 @@ Next version
   truth-testing it looked like "no nonce at all". Lazy nonces are now resolved
   (still only when there is something to render, so an empty media does not
   cause a nonce to be generated).
+- Fixed ``js_asset.Media.render_css()`` and ``.render_js()`` -- part of
+  ``forms.Media``'s public API -- rendering neither the CSP nonce nor the merged
+  import map. Only the full ``render()`` did.
 - Corrected the docs around Django 6.1 support. Thanks James Bligh!
 - Finally set up a documentation site at Read the Docs for django-js-asset.
 
