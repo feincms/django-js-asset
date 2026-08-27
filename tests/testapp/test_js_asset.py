@@ -88,6 +88,21 @@ class AssetTest(TestCase):
             '<style media="all">p{color:red}</style>',
         )
 
+    def test_inline_css_is_not_escaped(self):
+        # A ``<style>`` element is raw text: escaping does not round-trip there,
+        # it just corrupts the CSS.
+        css = 'nav > a::after{content:"<3"}\n@media (width > 40rem){a{color:red}}'
+        self.assertEqual(
+            str(CSS(css, inline=True)),
+            f'<style media="all">{css}</style>',
+        )
+
+    def test_inline_css_cannot_close_the_style_element(self):
+        # The one sequence which would let the CSS escape its element.
+        for css in ("a{}</style><script>alert(1)</script>", "a{}</STYLE >"):
+            with self.subTest(css=css), self.assertRaises(ValueError):
+                CSS(css, inline=True)
+
     def test_js_produces_script(self):
         asset = JS("app/asset.js", {"id": "x"})
         # ``JS`` is a factory producing a Django ``Script`` ...

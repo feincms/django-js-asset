@@ -39,6 +39,12 @@ Next version
   with ``{% csp_nonce_attr media.js %}`` -- returning a plain
   ``django.forms.Media``, therefore losing the CSP nonce and the import-map
   merging. They now return a ``js_asset.Media`` carrying the same nonce.
+- Fixed inline CSS (``CSS(css, inline=True)``) being HTML-escaped. A
+  ``<style>`` element is raw text -- character references are not decoded inside
+  it -- so escaping silently broke every rule containing ``>``, ``"``, ``'`` or
+  ``&``: ``nav &gt; a`` matches nothing. Inline CSS now renders verbatim, and
+  CSS containing ``</style`` (the one sequence which could close the element
+  early) is rejected with a ``ValueError``.
 - Corrected the docs around Django 6.1 support. Thanks James Bligh!
 - Finally set up a documentation site at Read the Docs for django-js-asset.
 

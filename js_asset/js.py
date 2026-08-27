@@ -48,11 +48,22 @@ class InlineStyle(MediaAsset):
     element_template = "<style{attributes}>{path}</style>"
 
     def __init__(self, css, *, media="all", **attributes):
+        # ``<style>`` is a raw text element, so nothing inside it can be
+        # escaped -- which also means the CSS is only safe as long as it cannot
+        # close the element. That takes exactly one sequence (HTML spec:
+        # "</style", ASCII case-insensitive), so reject it instead of shipping
+        # broken markup.
+        if "</style" in str(css).lower():
+            raise ValueError("Inline CSS must not contain '</style'.")
         super().__init__(css, media=media, **attributes)
 
     @property
     def path(self):
-        return self._path
+        # Verbatim, not escaped: HTML character references are *not* decoded
+        # inside a raw text element, so an escaped ``&gt;`` or ``&quot;`` would
+        # not be read back as ``>`` or ``"`` -- it would simply break the rule
+        # (``nav &gt; a`` matches nothing). See ``__init__`` on why this is safe.
+        return mark_safe(self._path)
 
 
 class _ProducesAsset(type):

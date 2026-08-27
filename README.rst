@@ -95,6 +95,11 @@ This produces:
     <style media="all">p{color:red;}</style>
     <script src="/static/widget/script.js" type="module"></script>
 
+Inline CSS is rendered verbatim -- a ``<style>`` element is raw text, so HTML
+escapes would not be decoded inside it and would break the CSS instead. For the
+same reason the CSS must not contain ``</style``, which would end the element
+early; passing such CSS raises a ``ValueError``.
+
 
 
 Compatibility

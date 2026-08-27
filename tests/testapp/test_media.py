@@ -138,6 +138,15 @@ CSS_ASSETS = [
         '<style media="all" nonce="n0nce">body{color:red}</style>',
     ),
     (
+        # ``<style>`` is a raw text element: HTML escapes are not decoded inside
+        # it, so the CSS has to be rendered exactly as given -- an escaped
+        # ``&gt;`` would break the selector instead of standing for ``>``.
+        "inline CSS with characters HTML would escape",
+        CSS('nav > a{content:"&"}', inline=True),
+        '<style media="all">nav > a{content:"&"}</style>',
+        '<style media="all" nonce="n0nce">nav > a{content:"&"}</style>',
+    ),
+    (
         "object with only __html__",
         HTMLOnlyAsset('<link href="/bundle.css" rel="stylesheet">'),
         '<link href="/bundle.css" rel="stylesheet">',
