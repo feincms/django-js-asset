@@ -70,6 +70,11 @@ The matrix lives in `tox.ini` (`tests/manage.py test testapp`).
   assets (flatatt sorts attributes), which the exact-string tests depend on.
   Equality is Django's, so dedup is attribute-aware on 4.2-5.1 + 6.2+ and
   path-only on 5.2-6.1 (`test_set` derives its expectation from this).
+  `InlineStyle` renders its CSS **verbatim** (`path` returns `mark_safe`):
+  `<style>` is a raw text element, so escaping does not round-trip there and
+  `nav &gt; a` would simply not match. The constructor rejects CSS containing
+  `</style` — the only sequence which could close the element early — which is
+  what keeps the unescaped output safe.
 - `js_asset/media.py` — `Media(forms.Media)` subclass: merges embedded
   `ImportMap`s into one tag, applies a nonce, and normalizes js/css entries by
   the `__html__` predicate (see the html-safe-string note above). Implements `__add__` **and**
@@ -77,6 +82,20 @@ The matrix lives in `tox.ini` (`tests/manage.py test testapp`).
   `forms.Media` from either side. The nonce lives on the instance (constructor
   `nonce=` or `with_nonce()` returning a copy); `render()` reads it, since
   templates call `render()` with no arguments.
+- **Every way *out* of a `Media` must keep the nonce and the import-map
+  merging**, not just `render()`: `render_css()`/`render_js()` (public
+  `forms.Media` API, and what Django's own `render()` calls) and `__getitem__`
+  (`{{ media.css }}`/`{{ media.js }}`; the admin change list renders
+  `{% csp_nonce_attr media.js %}`) are overridden for exactly that reason —
+  Django's `__getitem__` hardcodes `forms.Media`. Add a test to
+  `GetItemTest`/`RenderPartsTest` when a new accessor appears.
+- **Never truth-test a nonce that did not come from us.** Django's `LazyNonce`
+  (the `csp_nonce` context value, passed straight through by
+  `{% csp_nonce_attr media %}`) is falsy until it is first read, and
+  `isinstance(nonce, str)` reports the *wrapped* value's class while evaluating
+  it. `Media._resolve_nonce` uses `type(nonce) is not str` and resolves lazy
+  nonces with `str()` — but only when there is something to render, so an empty
+  media does not cause a nonce to be generated.
 - Django >= 6.2 has built-in CSP support: the `{% csp_nonce_attr media %}` tag
   (`django.utils.csp.nonce_attr`) renders media via
   `media.render(attrs={"nonce": nonce})`. `Media.render()` therefore accepts
