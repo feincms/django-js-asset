@@ -28,7 +28,7 @@ The matrix lives in `tox.ini` (`tests/manage.py test testapp`).
 - Don't rely on Django's `MediaAsset.render(attrs=...)` existing: it is absent
   on 5.2/6.0. `media.py:_render_asset` injects the nonce itself by rebuilding
   the tag from `element_template` + `flatatt`, which works on every version.
-- Cross-version gotcha: Django >= 6.2 wraps bare js/css path strings into
+- Cross-version gotcha: Django >= 6.1 wraps bare js/css path strings into
   `Script`/`Stylesheet` in `Media._js`/`._css`; older Django keeps raw strings.
   `media.py:_render_{js,css}` wrap any leftover strings via `JS()`/`CSS()`, so
   `_render_asset` always sees a `MediaAsset` (or `JSON`/`ImportMap`).
@@ -96,11 +96,11 @@ The matrix lives in `tox.ini` (`tests/manage.py test testapp`).
   it. `Media._resolve_nonce` uses `type(nonce) is not str` and resolves lazy
   nonces with `str()` — but only when there is something to render, so an empty
   media does not cause a nonce to be generated.
-- Django >= 6.2 has built-in CSP support: the `{% csp_nonce_attr media %}` tag
-  (`django.utils.csp.nonce_attr`) renders media via
-  `media.render(attrs={"nonce": nonce})`. `Media.render()` therefore accepts
-  `attrs=` and honours its nonce — so our `Media` plugs into that tag on 6.2,
-  while `with_nonce()`/constructor cover older Django.
+- Django has built-in CSP support since 6.0 (`csp_nonce` in the template
+  context, a `LazyNonce`), and since 6.1 also the `{% csp_nonce_attr media %}`
+  tag (`django.utils.csp.nonce_attr`), which renders media via
+  `media.render(attrs={"nonce": nonce})` — `Media.render()`/`render_{css,js}()`
+  accept `attrs=` for it. `with_nonce()`/constructor cover older Django.
 
 ## Docs
 

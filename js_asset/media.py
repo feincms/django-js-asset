@@ -140,11 +140,11 @@ class Media(forms.Media):
         # what Django's own ``render()`` calls), so they have to apply the nonce
         # and hoist import maps as well -- otherwise anything rendering the
         # media through them silently loses both. The ``attrs`` keyword only
-        # exists on Django >= 6.2; accepting it keeps the signature compatible.
+        # exists on Django >= 6.1; accepting it keeps the signature compatible.
         return self._render_js(self._resolve_nonce(None, attrs))
 
     def _resolve_nonce(self, nonce, attrs):
-        # ``attrs`` is accepted for compatibility with Django >= 6.2, whose
+        # ``attrs`` is accepted for compatibility with Django >= 6.1, whose
         # built-in CSP integration renders media via
         # ``media.render(attrs={"nonce": nonce})`` (see the ``csp_nonce_attr``
         # template tag). Only the nonce is honoured; the stored nonce is used
@@ -154,7 +154,7 @@ class Media(forms.Media):
         if nonce is None:
             nonce = self.nonce
         if type(nonce) is not str:
-            # Django's ``LazyNonce`` (the ``csp_nonce`` context value on >= 6.2)
+            # Django's ``LazyNonce`` (the ``csp_nonce`` context value on >= 6.0)
             # is deliberately *falsy* until it is first read, so truth-testing
             # it -- as the rendering code below does -- would silently drop the
             # nonce. Resolve lazy nonces to a string here instead. Only do so
