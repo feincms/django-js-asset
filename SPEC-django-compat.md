@@ -193,9 +193,10 @@ bit-for-bit match:
 def JS(src, attrs=None):
     return Script(src, **(attrs or {}))
 
+
 def CSS(src, media="all", *, inline=False):
     if inline:
-        return InlineStyle(src, media=media)   # see "inline CSS" below
+        return InlineStyle(src, media=media)  # see "inline CSS" below
     return Stylesheet(src, media=media)
 ```
 
