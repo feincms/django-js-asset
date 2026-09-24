@@ -10,11 +10,13 @@ automatically — do not hand-roll a venv):
 
 ```bash
 tox -e py312-dj42      # lowest supported combination
-tox -e py314-dj62      # a recent combination
+tox -e py314-djmain    # Django's main branch
 tox run-parallel       # the whole matrix
 ```
 
-The matrix lives in `tox.ini` (`tests/manage.py test testapp`).
+The matrix lives in `tox.ini` (`tests/manage.py test testapp`). Only use env
+names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
+`deps` entry, so tox silently installs whatever Django the extras pull in.
 
 ## Compatibility (hard constraint)
 
@@ -66,7 +68,8 @@ The matrix lives in `tox.ini` (`tests/manage.py test testapp`).
   so they dedup in `forms.Media.merge` against native assets *and* bare path
   strings; `isinstance(x, JS)` still works via `__instancecheck__`. `JSON` and
   `ImportMap` have no Django counterpart and stay standalone `@html_safe`
-  objects with `render(*, nonce="")`. Output is byte-identical to native Django
+  objects with `render(*, attrs=None, nonce="")` (`JSON` ignores both: a JSON
+  data block is not governed by CSP). Output is byte-identical to native Django
   assets (flatatt sorts attributes), which the exact-string tests depend on.
   Equality is Django's, so dedup is attribute-aware on 4.2-5.1 + 6.2+ and
   path-only on 5.2-6.1 (`test_set` derives its expectation from this).
@@ -75,6 +78,11 @@ The matrix lives in `tox.ini` (`tests/manage.py test testapp`).
   `nav &gt; a` would simply not match. The constructor rejects CSS containing
   `</style` — the only sequence which could close the element early — which is
   what keeps the unescaped output safe.
+- `ImportMap` copies the data it is given and is meant to be immutable (it is
+  hashable, `Media.merge` relies on it); combine with `|` / `|=`. `update()` is
+  deprecated and goes away in the next major version. The import maps DEP
+  draft in `../deps/draft/0000-import-maps.rst` is the design target, and
+  this package its reference implementation.
 - `js_asset/media.py` — `Media(forms.Media)` subclass: merges embedded
   `ImportMap`s into one tag, applies a nonce, and normalizes js/css entries by
   the `__html__` predicate (see the html-safe-string note above). Implements `__add__` **and**
@@ -89,6 +97,14 @@ The matrix lives in `tox.ini` (`tests/manage.py test testapp`).
   `{% csp_nonce_attr media.js %}`) are overridden for exactly that reason —
   Django's `__getitem__` hardcodes `forms.Media`. Add a test to
   `GetItemTest`/`RenderPartsTest` when a new accessor appears.
+- Import maps are merged in the `Media.merge` order of `_js`. With the map
+  **first** in each `js` list (what the README recommends) that is the order
+  media has been added together, since list heads have no predecessors and
+  the sort emits them first-seen first; so the project's map overrides the
+  apps'. A map further down a list can end up before an earlier-added one.
+  Merging over `_js_lists` would fix that but means every way of building a
+  new `Media` (incl. `__getitem__`) must keep the lists -- deliberately not
+  done (#38, and a caveat in the DEP).
 - **Never truth-test a nonce that did not come from us.** Django's `LazyNonce`
   (the `csp_nonce` context value, passed straight through by
   `{% csp_nonce_attr media %}`) is falsy until it is first read, and
