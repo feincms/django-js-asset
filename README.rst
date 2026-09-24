@@ -271,6 +271,10 @@ finally renders is a ``js_asset.Media`` -- so the import maps your widgets
 contribute are merged into the single tag automatically, ahead of the admin's
 own scripts. The same widget works unchanged outside the admin.
 
+The admin adds ``ModelAdmin.media`` before the media of forms, widgets and
+inlines, so an import map on a ``ModelAdmin`` cannot override entries of import
+maps added by widgets.
+
 
 CSP nonces
 ==========
