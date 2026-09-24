@@ -166,14 +166,11 @@ class Media(forms.Media):
         return nonce
 
     def _render_js(self, nonce):
-        importmap = reduce(
-            operator.or_,
-            (asset for asset in self._js if isinstance(asset, ImportMap)),
-            ImportMap({}),
-        )
+        importmaps = [asset for asset in self._js if isinstance(asset, ImportMap)]
         rendered = []
-        if importmap:
-            rendered.append(importmap.render(attrs={"nonce": nonce} if nonce else None))
+        if importmaps:
+            importmap = reduce(operator.or_, importmaps)
+            rendered.append(self._render_asset(importmap, nonce))
         for item in self._js:
             if isinstance(item, ImportMap):
                 continue
@@ -211,8 +208,8 @@ class Media(forms.Media):
                 path=asset.path,
                 attributes=flatatt({**asset.attributes, "nonce": nonce}),
             )
-        if isinstance(asset, (ImportMap, JSON)):
-            # Our own non-MediaAsset types take a ``nonce`` keyword.
+        if isinstance(asset, JSON):
+            # Our own non-MediaAsset type takes a ``nonce`` keyword.
             return asset.render(nonce=nonce)
         # Any other asset follows Django's plain ``__html__`` media contract
         # (an object that only knows how to render itself). Mirror

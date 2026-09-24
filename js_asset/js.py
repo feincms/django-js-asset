@@ -10,7 +10,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.forms.utils import flatatt
 from django.templatetags.static import static
 from django.utils.functional import lazy
-from django.utils.html import html_safe, json_script, mark_safe
+from django.utils.html import format_html, html_safe, json_script, mark_safe
 
 from js_asset._compat import MediaAsset, Script, Stylesheet
 
@@ -127,34 +127,59 @@ class JSON:
         return self.render()
 
 
-@html_safe
-class ImportMap:
-    def __init__(self, importmap):
+class ImportMap(MediaAsset):
+    """
+    An import map. Like :class:`InlineStyle` its ``path`` is the content of
+    the element, here the import map serialized as JSON.
+    """
+
+    element_template = '<script type="importmap"{attributes}>{path}</script>'
+
+    def __init__(self, importmap, **attributes):
         # Copy the data: import maps are hashable (``Media.merge`` relies on
         # it), so they must not change when the caller's dict does.
-        self._importmap = copy.deepcopy(importmap)
+        super().__init__(copy.deepcopy(importmap), **attributes)
+
+    @property
+    def path(self):
+        # ``json_script`` escapes ``<``, ``>`` and ``&``, so the JSON cannot
+        # close the element. ``DjangoJSONEncoder`` resolves lazy values, e.g.
+        # ``static_lazy`` paths, at rendering time.
+        return mark_safe(
+            json_script(self._path)
+            .removeprefix('<script type="application/json">')
+            .removesuffix("</script>")
+        )
 
     def __eq__(self, other):
-        return isinstance(other, ImportMap) and self._importmap == other._importmap
+        # Django < 6.2 compares ``path`` only, which would make the equality
+        # depend on the order of the keys.
+        return (
+            self.__class__ is other.__class__
+            and self._path == other._path
+            and self.attributes == other.attributes
+        )
 
     def __hash__(self):
         # ``__eq__`` compares the underlying dict order-insensitively, so the
         # hash must too -- see ``_canonical_hash``.
-        return _canonical_hash(self._importmap)
-
-    def __bool__(self):
-        return bool(self._importmap)
+        return hash((_canonical_hash(self._path), _canonical_hash(self.attributes)))
 
     def render(self, *, attrs=None, nonce=""):
-        # ``attrs`` matches ``MediaAsset.render()``; ``nonce`` is kept for
-        # backwards compatibility.
-        if self:
-            attrs = ({"nonce": nonce} if nonce else {}) | (attrs or {})
-            html = json_script(self._importmap).removeprefix(
-                '<script type="application/json">'
+        if nonce:
+            warnings.warn(
+                "ImportMap.render(nonce=...) is deprecated, use"
+                " render(attrs={'nonce': ...}) instead.",
+                DeprecationWarning,
+                stacklevel=2,
             )
-            return mark_safe(f'<script type="importmap"{flatatt(attrs)}>{html}')
-        return ""
+            attrs = {"nonce": nonce} | (attrs or {})
+        # Django's ``MediaAsset.render(attrs=)`` doesn't exist on 5.2 and 6.0.
+        return format_html(
+            self.element_template,
+            path=self.path,
+            attributes=flatatt({**(attrs or {}), **self.attributes}),
+        )
 
     def __str__(self):
         return self.render()
@@ -167,22 +192,22 @@ class ImportMap:
             stacklevel=2,
         )
         if isinstance(other, ImportMap):
-            other = other._importmap
+            other = other._path
 
         if imports := other.get("imports"):
-            self._importmap.setdefault("imports", {}).update(imports)
+            self._path.setdefault("imports", {}).update(imports)
         if integrity := other.get("integrity"):
-            self._importmap.setdefault("integrity", {}).update(integrity)
+            self._path.setdefault("integrity", {}).update(integrity)
         if scopes := other.get("scopes"):
             for scope, imports in scopes.items():
-                self._importmap.setdefault("scopes", {}).setdefault(scope, {}).update(
+                self._path.setdefault("scopes", {}).setdefault(scope, {}).update(
                     imports
                 )
 
     def __or__(self, other):
         if not isinstance(other, ImportMap):
             return NotImplemented
-        a, b = self._importmap, other._importmap
+        a, b = self._path, other._path
         combined = {}
         for key in ("imports", "integrity"):
             if key in a or key in b:
@@ -193,4 +218,4 @@ class ImportMap:
                 scope: scopes[0].get(scope, {}) | scopes[1].get(scope, {})
                 for scope in scopes[0] | scopes[1]
             }
-        return self.__class__(combined)
+        return self.__class__(combined, **(self.attributes | other.attributes))

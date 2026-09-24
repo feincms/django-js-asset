@@ -7,6 +7,15 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+- ``ImportMap`` is a ``MediaAsset`` now, like Django's ``Script``. On Django
+  6.1 and newer, a plain ``forms.Media`` rendered with ``attrs=`` (e.g. through
+  ``{% csp_nonce_attr media %}``) therefore applies the nonce to import maps
+  too. ``ImportMap(data, **attributes)`` accepts attributes for the tag.
+- Deprecated ``ImportMap.render(nonce=...)``, use
+  ``render(attrs={"nonce": ...})`` instead.
+- **Backwards-incompatible:** Removed ``ImportMap.__bool__``. An empty
+  ``ImportMap({})`` renders an empty import map instead of nothing.
+
 4.2 (2026-09-24)
 ~~~~~~~~~~~~~~~~
 
