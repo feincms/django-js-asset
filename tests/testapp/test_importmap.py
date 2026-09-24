@@ -1,4 +1,3 @@
-import warnings
 from unittest import skipIf
 
 import django
@@ -113,9 +112,7 @@ class MediaTest(TestCase):
     def test_merging_leaves_operands_alone(self):
         a = ImportMap({"imports": {"lib": "/a.js"}, "scopes": {"/x/": {"y": "/a"}}})
         b = ImportMap({"imports": {"lib": "/b.js"}, "scopes": {"/x/": {"y": "/b"}}})
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            combined = a | b
+        combined = a | b
         self.assertEqual(
             combined._path,
             {"imports": {"lib": "/b.js"}, "scopes": {"/x/": {"y": "/b"}}},
@@ -128,13 +125,5 @@ class MediaTest(TestCase):
         self.assertEqual(importmap, combined)
         self.assertEqual(a._path["imports"], {"lib": "/a.js"})
 
-    def test_update_is_deprecated(self):
-        data = {"imports": {"a": "/static/a.js"}}
-        importmap = ImportMap(data)
-        with self.assertWarns(DeprecationWarning):
-            importmap.update({"imports": {"b": "/static/b.js"}})
-        self.assertEqual(
-            importmap._path,
-            {"imports": {"a": "/static/a.js", "b": "/static/b.js"}},
-        )
-        self.assertEqual(data, {"imports": {"a": "/static/a.js"}})
+    def test_is_immutable(self):
+        self.assertFalse(hasattr(ImportMap({}), "update"))
