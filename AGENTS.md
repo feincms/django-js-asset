@@ -33,7 +33,7 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
 - Cross-version gotcha: Django >= 6.1 wraps bare js/css path strings into
   `Script`/`Stylesheet` in `Media._js`/`._css`; older Django keeps raw strings.
   `media.py:_render_{js,css}` wrap any leftover strings via `JS()`/`CSS()`, so
-  `_render_asset` always sees a `MediaAsset` (or `JSON`/`ImportMap`).
+  `_render_asset` always sees a `MediaAsset` (or an opaque `__html__` asset).
 - **Never test an asset with `isinstance(item, str)`.** `SafeString` is a `str`
   subclass, so `mark_safe('<script src=...></script>')` — a complete tag that
   must render verbatim — would be resolved through `static()` and
@@ -67,9 +67,11 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   metaclass): calling them returns a Django `Script`/`Stylesheet`/`InlineStyle`
   so they dedup in `forms.Media.merge` against native assets *and* bare path
   strings; `isinstance(x, JS)` still works via `__instancecheck__`. `JSON` and
-  `ImportMap` have no Django counterpart and stay standalone `@html_safe`
-  objects with `render(*, attrs=None, nonce="")` (`JSON` ignores both: a JSON
-  data block is not governed by CSP). Output is byte-identical to native Django
+  `ImportMap` have no Django counterpart; they are `MediaAsset` subclasses
+  sharing `_JSONAsset`, whose `path` is the escaped JSON (like `InlineStyle`)
+  and which defines its own `render(*, attrs=None)` (Django's lacks `attrs=`
+  on 5.2/6.0; `nonce=` is deprecated) and order-insensitive `__eq__`/`__hash__`
+  (Django < 6.2 compares the rendered `path`). Output is byte-identical to native Django
   assets (flatatt sorts attributes), which the exact-string tests depend on.
   Equality is Django's, so dedup is attribute-aware on 4.2-5.1 + 6.2+ and
   path-only on 5.2-6.1 (`test_set` derives its expectation from this).
@@ -79,8 +81,8 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   `</style` — the only sequence which could close the element early — which is
   what keeps the unescaped output safe.
 - `ImportMap` copies the data it is given and is meant to be immutable (it is
-  hashable, `Media.merge` relies on it); combine with `|` / `|=`. `update()` is
-  deprecated and goes away in the next major version. The import maps DEP
+  hashable, `Media.merge` relies on it); combine with `|` / `|=`. `update()`
+  (deprecated in 4.2) is removed in PR #40. The import maps DEP
   draft in `../deps/draft/0000-import-maps.rst` is the design target, and
   this package its reference implementation.
 - `js_asset/media.py` — `Media(forms.Media)` subclass: merges embedded
