@@ -16,4 +16,5 @@ tests/test.zip
 .coverage
 htmlcov
 venv
+.venv
 .tox
