@@ -82,7 +82,7 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   what keeps the unescaped output safe.
 - `ImportMap` copies the data it is given and is meant to be immutable (it is
   hashable, `Media.merge` relies on it); combine with `|` / `|=`. `update()`
-  (deprecated in 4.2) is removed in PR #40. The import maps DEP
+  was deprecated in 4.2 and has been removed. The import maps DEP
   draft in `../deps/draft/0000-import-maps.rst` is the design target, and
   this package its reference implementation.
 - `js_asset/media.py` — `Media(forms.Media)` subclass: merges embedded

@@ -179,26 +179,6 @@ class JSON(_JSONAsset):
 class ImportMap(_JSONAsset):
     element_template = '<script type="importmap"{attributes}>{path}</script>'
 
-    def update(self, other):
-        warnings.warn(
-            "ImportMap.update() is deprecated, import maps will become immutable."
-            " Use map1 | map2 or map1 |= map2 instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if isinstance(other, ImportMap):
-            other = other._path
-
-        if imports := other.get("imports"):
-            self._path.setdefault("imports", {}).update(imports)
-        if integrity := other.get("integrity"):
-            self._path.setdefault("integrity", {}).update(integrity)
-        if scopes := other.get("scopes"):
-            for scope, imports in scopes.items():
-                self._path.setdefault("scopes", {}).setdefault(scope, {}).update(
-                    imports
-                )
-
     def __or__(self, other):
         if not isinstance(other, ImportMap):
             return NotImplemented

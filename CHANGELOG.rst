@@ -7,6 +7,8 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+- **Backwards-incompatible:** Removed the deprecated ``ImportMap.update()``.
+  Import maps are immutable, use ``map1 | map2`` or ``map1 |= map2`` instead.
 - ``ImportMap`` is a ``MediaAsset`` now, like Django's ``Script``. On Django
   6.1 and newer, a plain ``forms.Media`` rendered with ``attrs=`` (e.g. through
   ``{% csp_nonce_attr media %}``) therefore applies the nonce to import maps
