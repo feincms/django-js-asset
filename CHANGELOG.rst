@@ -7,6 +7,7 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+- ``js_asset.Media`` only runs ``Media.merge`` once when rendering scripts.
 - **Backwards-incompatible:** Removed the deprecated ``ImportMap.update()``.
   Import maps are immutable, use ``map1 | map2`` or ``map1 |= map2`` instead.
 - ``ImportMap`` is a ``MediaAsset`` now, like Django's ``Script``. On Django

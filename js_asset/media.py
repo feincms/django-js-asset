@@ -166,12 +166,14 @@ class Media(forms.Media):
         return nonce
 
     def _render_js(self, nonce):
-        importmaps = [asset for asset in self._js if isinstance(asset, ImportMap)]
+        # ``_js`` runs ``Media.merge`` on every access, so only read it once.
+        js = self._js
+        importmaps = [asset for asset in js if isinstance(asset, ImportMap)]
         rendered = []
         if importmaps:
             importmap = reduce(operator.or_, importmaps)
             rendered.append(self._render_asset(importmap, nonce))
-        for item in self._js:
+        for item in js:
             if isinstance(item, ImportMap):
                 continue
             # ``hasattr(item, "__html__")`` -- not ``isinstance(item, str)``:
