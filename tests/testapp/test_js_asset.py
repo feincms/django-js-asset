@@ -122,6 +122,12 @@ class AssetTest(TestCase):
         self.assertIsInstance(inline, CSS)
         self.assertNotIsInstance(JS("app/asset.js"), CSS)
 
+    def test_json_render_accepts_attrs(self):
+        self.assertEqual(
+            JSON({"hello": "world"}, id="hello").render(attrs={"nonce": "N"}),
+            '<script id="hello" type="application/json">{"hello": "world"}</script>',
+        )
+
     def test_json(self):
         self.assertEqual(
             str(JSON({"hello": "world"}, id="hello")),

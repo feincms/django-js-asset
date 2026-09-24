@@ -13,6 +13,8 @@ Next version
   ``map1 | map2`` or ``map1 |= map2`` instead.
 - ``ImportMap.render()`` accepts ``attrs=`` like Django's
   ``MediaAsset.render()``. Empty import maps are falsy.
+- ``JSON.render()`` accepts ``attrs=`` too. It is ignored like ``nonce=``, since
+  JSON data blocks are not governed by CSP.
 
 4.1 (2026-08-28)
 ~~~~~~~~~~~~~~~~

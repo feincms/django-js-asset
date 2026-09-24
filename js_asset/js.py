@@ -116,9 +116,11 @@ class JSON:
         # hash must too -- see ``_canonical_hash``.
         return hash((_canonical_hash(self.data), self.id))
 
-    def render(self, *, nonce=""):
+    def render(self, *, attrs=None, nonce=""):
         # A type="application/json" block is data, not executed JavaScript, so
-        # it is not governed by CSP and needs no nonce.
+        # it is not governed by CSP and needs no nonce. ``attrs`` is accepted
+        # for compatibility with ``MediaAsset.render()`` (whose callers pass
+        # the nonce that way) and ignored as well.
         return json_script(self.data, self.id)
 
     def __str__(self):
