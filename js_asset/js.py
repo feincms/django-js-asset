@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import copy
 import json
+import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -126,7 +128,9 @@ class JSON:
 @html_safe
 class ImportMap:
     def __init__(self, importmap):
-        self._importmap = importmap
+        # Copy the data: import maps are hashable (``Media.merge`` relies on
+        # it), so they must not change when the caller's dict does.
+        self._importmap = copy.deepcopy(importmap)
 
     def __eq__(self, other):
         return isinstance(other, ImportMap) and self._importmap == other._importmap
@@ -149,6 +153,12 @@ class ImportMap:
         return self.render()
 
     def update(self, other):
+        warnings.warn(
+            "ImportMap.update() is deprecated, import maps will become immutable."
+            " Use map1 | map2 or map1 |= map2 instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if isinstance(other, ImportMap):
             other = other._importmap
 
@@ -163,9 +173,17 @@ class ImportMap:
                 )
 
     def __or__(self, other):
-        if isinstance(other, ImportMap):
-            combined = self.__class__({})
-            combined.update(self)
-            combined.update(other)
-            return combined
-        return NotImplemented
+        if not isinstance(other, ImportMap):
+            return NotImplemented
+        a, b = self._importmap, other._importmap
+        combined = {}
+        for key in ("imports", "integrity"):
+            if key in a or key in b:
+                combined[key] = a.get(key, {}) | b.get(key, {})
+        if "scopes" in a or "scopes" in b:
+            scopes = a.get("scopes", {}), b.get("scopes", {})
+            combined["scopes"] = {
+                scope: scopes[0].get(scope, {}) | scopes[1].get(scope, {})
+                for scope in scopes[0] | scopes[1]
+            }
+        return self.__class__(combined)
