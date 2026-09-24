@@ -1,7 +1,15 @@
 from django.forms import Media
 from django.test import TestCase
 
-from js_asset.js import CSS, JS, JSON, InlineStyle, Script, Stylesheet
+from js_asset.js import (
+    CSS,
+    JS,
+    JSON,
+    InlineStyle,
+    MediaAsset,
+    Script,
+    Stylesheet,
+)
 
 
 class AssetTest(TestCase):
@@ -122,10 +130,31 @@ class AssetTest(TestCase):
         self.assertIsInstance(inline, CSS)
         self.assertNotIsInstance(JS("app/asset.js"), CSS)
 
-    def test_json_render_accepts_attrs(self):
+    def test_json_is_a_media_asset(self):
+        data = {"hello": "world"}
+        asset = JSON(data, id="hello")
+        self.assertIsInstance(asset, MediaAsset)
         self.assertEqual(
-            JSON({"hello": "world"}, id="hello").render(attrs={"nonce": "N"}),
-            '<script id="hello" type="application/json">{"hello": "world"}</script>',
+            asset.render(attrs={"nonce": "N"}),
+            '<script id="hello" nonce="N" type="application/json">'
+            '{"hello": "world"}</script>',
+        )
+        with self.assertWarns(DeprecationWarning):
+            asset.render(nonce="N")
+        self.assertEqual((asset.data, asset.id), ({"hello": "world"}, "hello"))
+        self.assertEqual(JSON({"hello": "world"}).id, "")
+
+        # Copies the data, and equality and hashing ignore the order of keys.
+        data["hello"] = "changed"
+        self.assertEqual(asset.data, {"hello": "world"})
+        self.assertEqual(JSON({"a": 1, "b": 2}), JSON({"b": 2, "a": 1}))
+        self.assertEqual(hash(JSON({"a": 1, "b": 2})), hash(JSON({"b": 2, "a": 1})))
+        self.assertNotEqual(JSON({"a": 1}, id="x"), JSON({"a": 1}))
+
+        # Escaped so that the data cannot close the element.
+        self.assertEqual(
+            str(JSON({"a": "</script>"})),
+            '<script type="application/json">{"a": "\\u003C/script\\u003E"}</script>',
         )
 
     def test_json(self):

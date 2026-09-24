@@ -279,8 +279,7 @@ A CSP nonce is *request-scoped* -- it must change on every response, while
 widget media is usually built once at class-definition time -- so the nonce is
 applied when the media is rendered, not when it is constructed.
 ``js_asset.Media`` stores an optional nonce and applies it to every script and
-stylesheet it renders (a ``JSON`` block is data, not executable, and
-deliberately gets none). There are a few ways to get the nonce in, depending on
+stylesheet it renders. There are a few ways to get the nonce in, depending on
 your Django version.
 
 Django 6.1 and newer (built-in CSP)
@@ -456,6 +455,5 @@ Notes
 * A stylesheet placed in ``js=[...]`` is only de-duplicated against that list.
   ``forms.Media`` keeps the ``css={...}`` dictionary in a separate slot, so the
   same file listed in both renders twice -- pick one.
-* ``JSON`` blocks are data and deliberately get no nonce.
 * Browser support for import maps is still uneven; merging into a single map is
   currently the only portable way to use them in production.

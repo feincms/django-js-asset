@@ -6,7 +6,7 @@ from django.forms.utils import flatatt
 from django.utils.html import format_html, mark_safe
 
 from js_asset._compat import MediaAsset, Script, Stylesheet
-from js_asset.js import CSS, JS, JSON, ImportMap
+from js_asset.js import CSS, JS, ImportMap
 
 
 __all__ = ["Media"]
@@ -208,9 +208,6 @@ class Media(forms.Media):
                 path=asset.path,
                 attributes=flatatt({**asset.attributes, "nonce": nonce}),
             )
-        if isinstance(asset, JSON):
-            # Our own non-MediaAsset type takes a ``nonce`` keyword.
-            return asset.render(nonce=nonce)
         # Any other asset follows Django's plain ``__html__`` media contract
         # (an object that only knows how to render itself). Mirror
         # ``forms.Media``'s fallback so such assets keep working -- the nonce

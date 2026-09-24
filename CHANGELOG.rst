@@ -15,6 +15,13 @@ Next version
   ``render(attrs={"nonce": ...})`` instead.
 - **Backwards-incompatible:** Removed ``ImportMap.__bool__``. An empty
   ``ImportMap({})`` renders an empty import map instead of nothing.
+- ``JSON`` is a ``MediaAsset`` now as well, and copies the data it is given.
+- Deprecated ``JSON.render(nonce=...)``, use ``render(attrs={"nonce": ...})``
+  instead.
+- **Backwards-incompatible:** ``JSON.render(attrs=...)`` no longer ignores
+  ``attrs``, and JSON blocks rendered through ``js_asset.Media`` with a nonce
+  get the nonce attribute too. It's harmless, JSON data blocks are not
+  governed by CSP.
 
 4.2 (2026-09-24)
 ~~~~~~~~~~~~~~~~

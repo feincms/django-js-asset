@@ -3,14 +3,12 @@ from __future__ import annotations
 import copy
 import json
 import warnings
-from dataclasses import dataclass, field
-from typing import Any
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.forms.utils import flatatt
 from django.templatetags.static import static
 from django.utils.functional import lazy
-from django.utils.html import format_html, html_safe, json_script, mark_safe
+from django.utils.html import format_html, json_script, mark_safe
 
 from js_asset._compat import MediaAsset, Script, Stylesheet
 
@@ -105,40 +103,18 @@ class CSS(metaclass=_ProducesAsset):
         return Stylesheet(src, media=media)
 
 
-@html_safe
-@dataclass(eq=True)
-class JSON:
-    data: dict[str, Any]
-    id: str | None = field(default="", kw_only=True)
-
-    def __hash__(self):
-        # ``__eq__`` (dataclass) compares ``data`` order-insensitively, so the
-        # hash must too -- see ``_canonical_hash``.
-        return hash((_canonical_hash(self.data), self.id))
-
-    def render(self, *, attrs=None, nonce=""):
-        # A type="application/json" block is data, not executed JavaScript, so
-        # it is not governed by CSP and needs no nonce. ``attrs`` is accepted
-        # for compatibility with ``MediaAsset.render()`` (whose callers pass
-        # the nonce that way) and ignored as well.
-        return json_script(self.data, self.id)
-
-    def __str__(self):
-        return self.render()
-
-
-class ImportMap(MediaAsset):
+class _JSONAsset(MediaAsset):
     """
-    An import map. Like :class:`InlineStyle` its ``path`` is the content of
-    the element, here the import map serialized as JSON.
+    A ``<script>`` element whose content is data serialized as JSON. Like
+    :class:`InlineStyle` its ``path`` is the content of the element.
     """
 
-    element_template = '<script type="importmap"{attributes}>{path}</script>'
+    element_template = "<script{attributes}>{path}</script>"
 
-    def __init__(self, importmap, **attributes):
-        # Copy the data: import maps are hashable (``Media.merge`` relies on
-        # it), so they must not change when the caller's dict does.
-        super().__init__(copy.deepcopy(importmap), **attributes)
+    def __init__(self, data, **attributes):
+        # Copy the data: assets are hashable (``Media.merge`` relies on it), so
+        # they must not change when the caller's dict does.
+        super().__init__(copy.deepcopy(data), **attributes)
 
     @property
     def path(self):
@@ -168,7 +144,7 @@ class ImportMap(MediaAsset):
     def render(self, *, attrs=None, nonce=""):
         if nonce:
             warnings.warn(
-                "ImportMap.render(nonce=...) is deprecated, use"
+                f"{self.__class__.__name__}.render(nonce=...) is deprecated, use"
                 " render(attrs={'nonce': ...}) instead.",
                 DeprecationWarning,
                 stacklevel=2,
@@ -183,6 +159,25 @@ class ImportMap(MediaAsset):
 
     def __str__(self):
         return self.render()
+
+
+class JSON(_JSONAsset):
+    def __init__(self, data, *, id="", **attributes):
+        if id:
+            attributes["id"] = id
+        super().__init__(data, type="application/json", **attributes)
+
+    @property
+    def data(self):
+        return self._path
+
+    @property
+    def id(self):
+        return self.attributes.get("id", "")
+
+
+class ImportMap(_JSONAsset):
+    element_template = '<script type="importmap"{attributes}>{path}</script>'
 
     def update(self, other):
         warnings.warn(

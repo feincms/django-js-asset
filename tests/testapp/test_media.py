@@ -19,7 +19,7 @@ except ImportError:
 class HTMLOnlyAsset:
     """
     A media asset using Django's plain ``__html__`` contract -- not a
-    ``MediaAsset`` and not one of our ``ImportMap``/``JSON`` types. Stock
+    ``MediaAsset``. Stock
     ``forms.Media`` renders such assets via ``__html__()``.
     """
 
@@ -78,9 +78,8 @@ JS_ASSETS = [
     (
         "JSON block",
         JSON({"a": 1}, id="cfg"),
-        # Data, not executed script: no nonce either way.
         '<script id="cfg" type="application/json">{"a": 1}</script>',
-        '<script id="cfg" type="application/json">{"a": 1}</script>',
+        '<script id="cfg" nonce="n0nce" type="application/json">{"a": 1}</script>',
     ),
     (
         "ImportMap",
@@ -324,13 +323,12 @@ class MediaTest(TestCase):
         self.assertEqual(media.render(), '<script src="/bundle.js"></script>')
 
     def test_json_asset_rendered_through_media(self):
-        # A JSON block carried as a JS asset renders via its own ``render``.
-        # It is data, not executed script, so it stays nonce-free even when a
-        # nonce is set on the media.
+        # A JSON block is a ``MediaAsset`` like any other, so it gets the
+        # nonce too (harmless, JSON data blocks are not governed by CSP).
         media = Media(nonce="n0nce", js=[JSON({"a": 1}, id="cfg")])
-        self.assertInHTML(
-            '<script id="cfg" type="application/json">{"a": 1}</script>',
+        self.assertEqual(
             media.render(),
+            '<script id="cfg" nonce="n0nce" type="application/json">{"a": 1}</script>',
         )
 
     def test_adding_non_media_is_not_supported(self):
