@@ -7,6 +7,12 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+- ``ImportMap`` takes the ``imports`` of the import map now, and ``scopes=``
+  and ``integrity=`` keyword arguments: ``ImportMap({"lib": "lib.js"})``.
+  Relative paths are passed through ``static()`` when rendering, like ``JS``
+  paths, so ``static_lazy()`` isn't needed for import maps anymore. Passing a
+  full import map (``ImportMap({"imports": {...}})``) is deprecated; its paths
+  are used as they are, as before.
 - ``js_asset.Media`` only runs ``Media.merge`` once when rendering scripts.
 - Equal ``ImportMap`` and ``JSON`` objects with attributes such as ``True``
   and ``1`` have the same hash now.

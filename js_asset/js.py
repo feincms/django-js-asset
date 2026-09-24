@@ -118,11 +118,15 @@ class _JSONAsset(MediaAsset):
 
     @property
     def path(self):
+        return self._serialize(self._path)
+
+    @staticmethod
+    def _serialize(data):
         # ``json_script`` escapes ``<``, ``>`` and ``&``, so the JSON cannot
         # close the element. ``DjangoJSONEncoder`` resolves lazy values, e.g.
         # ``static_lazy`` paths, at rendering time.
         return mark_safe(
-            json_script(self._path)
+            json_script(data)
             .removeprefix('<script type="application/json">')
             .removesuffix("</script>")
         )
@@ -182,8 +186,117 @@ class JSON(_JSONAsset):
         return self.attributes.get("id", "")
 
 
+_IMPORTMAP_KEYS = {"imports", "scopes", "integrity"}
+
+# Paths which are used as they are instead of being passed through ``static()``.
+# Paths ending with ``/`` are prefix mappings; storages cannot resolve those.
+_UNRESOLVED_PREFIXES = ("http://", "https://", "/", "./", "../", "data:", "blob:")
+
+
+class _Verbatim(str):
+    """
+    A path from a full import map (the deprecated form), which has never been
+    passed through ``static()``. Keep rendering it as it is.
+    """
+
+    __slots__ = ()
+
+
+def _resolve(path):
+    if isinstance(path, _Verbatim):
+        return str(path)
+    path = str(path)  # Resolves lazy strings such as ``static_lazy`` paths.
+    if path.startswith(_UNRESOLVED_PREFIXES) or path.endswith("/"):
+        return path
+    return static(path)
+
+
+def _is_full_importmap(imports):
+    # Specifiers map to paths (strings), the top-level keys of a full import
+    # map to dictionaries, so the two cannot be confused.
+    return any(
+        key in _IMPORTMAP_KEYS and isinstance(value, dict)
+        for key, value in imports.items()
+    )
+
+
+def _verbatim(imports):
+    return {
+        key: _Verbatim(path) if type(path) is str else path
+        for key, path in imports.items()
+    }
+
+
 class ImportMap(_JSONAsset):
+    """
+    An import map, rendered as ``<script type="importmap">``.
+
+    ``imports`` maps module specifiers to paths, ``scopes`` maps URL prefixes
+    to additional imports only used by modules loaded from those prefixes, and
+    ``integrity`` maps URLs to integrity metadata. Relative paths in
+    ``imports`` and ``scopes`` are passed through ``static()`` when rendering,
+    URLs, paths starting with ``/``, ``./`` or ``../`` and paths ending with
+    ``/`` are used as they are.
+    """
+
     element_template = '<script type="importmap"{attributes}>{path}</script>'
+
+    def __init__(self, imports=None, *, scopes=None, integrity=None, **attributes):
+        if (
+            imports is not None
+            and scopes is None
+            and integrity is None
+            and _is_full_importmap(imports)
+        ):
+            warnings.warn(
+                "Passing a full import map to ImportMap() is deprecated, pass"
+                " the imports and the scopes= and integrity= keyword arguments"
+                " instead: ImportMap(imports, scopes=..., integrity=...).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Paths of full import maps have never been resolved through
+            # ``static()``, so keep them as they are.
+            data = dict(imports)
+            if "imports" in data:
+                data["imports"] = _verbatim(data["imports"])
+            if "scopes" in data:
+                data["scopes"] = {
+                    scope: _verbatim(scope_imports)
+                    for scope, scope_imports in data["scopes"].items()
+                }
+        else:
+            data = {}
+            if imports:
+                data["imports"] = dict(imports)
+            if scopes:
+                data["scopes"] = {
+                    scope: dict(scope_imports)
+                    for scope, scope_imports in scopes.items()
+                }
+            if integrity:
+                data["integrity"] = dict(integrity)
+        super().__init__(data, **attributes)
+
+    @classmethod
+    def _from_data(cls, data, **attributes):
+        importmap = cls.__new__(cls)
+        _JSONAsset.__init__(importmap, data, **attributes)
+        return importmap
+
+    @property
+    def path(self):
+        data = dict(self._path)
+        if "imports" in data:
+            data["imports"] = {
+                key: _resolve(path) for key, path in data["imports"].items()
+            }
+        if "scopes" in data:
+            data["scopes"] = {
+                scope: {key: _resolve(path) for key, path in scope_imports.items()}
+                for scope, scope_imports in data["scopes"].items()
+            }
+        return self._serialize(data)
 
     def __or__(self, other):
         if not isinstance(other, ImportMap):
@@ -199,4 +312,4 @@ class ImportMap(_JSONAsset):
                 scope: scopes[0].get(scope, {}) | scopes[1].get(scope, {})
                 for scope in scopes[0] | scopes[1]
             }
-        return self.__class__(combined, **(self.attributes | other.attributes))
+        return self._from_data(combined, **(self.attributes | other.attributes))

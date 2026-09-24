@@ -154,12 +154,25 @@ many media objects were added together to get there:
 
 .. code-block:: python
 
-    from js_asset import ImportMap, JS, Media, static_lazy
+    from js_asset import ImportMap, JS, Media
 
     media = Media(js=[
-        ImportMap({"imports": {"my-library": static_lazy("my-library.js")}}),
+        ImportMap({"my-library": "my-library.js"}),
         JS("code.js", {"type": "module"}),
     ])
+
+``ImportMap`` takes the ``imports`` of the import map, and ``scopes=`` and
+``integrity=`` keyword arguments for the other parts. Paths are resolved when
+rendering, like ``JS`` paths: relative paths are passed through ``static()``,
+so defining import maps at module level works with
+``ManifestStaticFilesStorage``. URLs, paths starting with ``/``, ``./`` or
+``../`` and paths ending with ``/`` (prefix mappings) are used as they are.
+
+.. note::
+
+   Passing a full import map (``ImportMap({"imports": {...}})``) is deprecated.
+   It still works, but its paths are used as they are and never passed through
+   ``static()``.
 
 Put import maps at the start of their ``js`` lists. Import maps are merged in
 the order produced by ``Media.merge``; for import maps listed first that's the
@@ -195,11 +208,11 @@ the context:
 .. code-block:: python
 
     from django.shortcuts import render
-    from js_asset import ImportMap, JS, Media, static
+    from js_asset import ImportMap, JS, Media
 
     def dashboard(request):
         media = Media(js=[
-            ImportMap({"imports": {"chart": static("chart/index.js")}}),
+            ImportMap({"chart": "chart/index.js"}),
             JS("dashboard.js", {"type": "module"}),
         ])
         return render(request, "dashboard.html", {"media": media})
@@ -217,7 +230,7 @@ work, because ``forms.Media`` copies from a media *definition*, not an
     def edit(request):
         form = MyForm()
         page = Media(js=[
-            ImportMap({"imports": {"editor": static("editor/index.js")}}),
+            ImportMap({"editor": "editor/index.js"}),
             JS("editor/init.js", {"type": "module"}),
         ])
         media = page + form.media            # or: Media.from_media(form.media)
@@ -245,13 +258,13 @@ map returns a ``js_asset.Media``:
 
     from django.contrib import admin
     from django import forms
-    from js_asset import ImportMap, JS, Media, static
+    from js_asset import ImportMap, JS, Media
 
     class EditorWidget(forms.Textarea):
         @property
         def media(self):
             return Media(js=[
-                ImportMap({"imports": {"editor": static("editor/index.js")}}),
+                ImportMap({"editor": "editor/index.js"}),
                 JS("editor/init.js", {"type": "module"}),
             ])
 

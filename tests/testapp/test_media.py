@@ -83,7 +83,7 @@ JS_ASSETS = [
     ),
     (
         "ImportMap",
-        ImportMap({"imports": {"a": "/static/a.js"}}),
+        ImportMap({"a": "/static/a.js"}),
         '<script type="importmap">{"imports": {"a": "/static/a.js"}}</script>',
         (
             '<script type="importmap" nonce="n0nce">'
@@ -213,7 +213,7 @@ class MediaTest(TestCase):
     def test_nonce_conflicts_with_asset_nonce(self):
         for asset in [
             JS("app.js", {"nonce": "own"}),
-            ImportMap({"imports": {"a": "/static/a.js"}}, nonce="own"),
+            ImportMap({"a": "/static/a.js"}, nonce="own"),
         ]:
             with self.subTest(asset=asset):
                 media = Media(nonce="r@nd0m", js=[asset])
@@ -240,9 +240,9 @@ class MediaTest(TestCase):
         media = Media(
             nonce="r@nd0m",
             js=[
-                ImportMap({"imports": {"a": "/static/a.js"}}),
+                ImportMap({"a": "/static/a.js"}),
                 JS("app.js", {"type": "module"}),
-                ImportMap({"imports": {"b": "/static/b.js"}}),
+                ImportMap({"b": "/static/b.js"}),
             ],
         )
         self.assertEqual(
@@ -254,10 +254,10 @@ class MediaTest(TestCase):
 
     def test_later_importmaps_listed_first_override_earlier_ones(self):
         # What the README recommends: import maps first in their ``js`` lists.
-        app = Media(js=[ImportMap({"imports": {"lib": "/app.js"}}), JS("shared.js")])
+        app = Media(js=[ImportMap({"lib": "/app.js"}), JS("shared.js")])
         project = Media(
             js=[
-                ImportMap({"imports": {"lib": "/project.js"}}),
+                ImportMap({"lib": "/project.js"}),
                 JS("shared.js"),
                 JS("project.js"),
             ]
@@ -270,7 +270,7 @@ class MediaTest(TestCase):
         self.assertEqual(media["js"].render().splitlines()[0], expected)
 
     def test_type_and_nonce_preserved_when_merging(self):
-        ours = Media(nonce="abc", js=[ImportMap({"imports": {"a": "/static/a.js"}})])
+        ours = Media(nonce="abc", js=[ImportMap({"a": "/static/a.js"})])
         plain = DjangoMedia(js=["app.js"])
 
         # Our Media on the right-hand side (the case plain forms.Media drops).
@@ -362,9 +362,7 @@ class MediaTest(TestCase):
             3 + Media()
 
     def test_from_media_wraps_existing_instance(self):
-        plain = DjangoMedia(
-            js=[ImportMap({"imports": {"a": "/static/a.js"}}), JS("app.js")]
-        )
+        plain = DjangoMedia(js=[ImportMap({"a": "/static/a.js"}), JS("app.js")])
         wrapped = Media.from_media(plain, nonce="w")
 
         self.assertIsInstance(wrapped, Media)
@@ -476,7 +474,7 @@ class LazyNonceTest(TestCase):
         )
 
     def test_lazy_nonce_applied_to_importmaps(self):
-        media = Media(js=[ImportMap({"imports": {"a": "/static/a.js"}})])
+        media = Media(js=[ImportMap({"a": "/static/a.js"})])
         self.assertEqual(
             media.render(nonce=LazyNonce("l@zy")),
             '<script type="importmap" nonce="l@zy">'
@@ -496,7 +494,7 @@ class LazyNonceTest(TestCase):
         nonce = DjangoLazyNonce()
         html = nonce_attr(
             {"csp_nonce": nonce},
-            Media(js=[ImportMap({"imports": {"a": "/static/a.js"}}), JS("app.js")]),
+            Media(js=[ImportMap({"a": "/static/a.js"}), JS("app.js")]),
         )
         self.assertTrue(nonce)
         self.assertEqual(
@@ -518,9 +516,9 @@ class RenderPartsTest(TestCase):
             nonce="n0nce",
             css={"all": [CSS("app.css")]},
             js=[
-                ImportMap({"imports": {"a": "/static/a.js"}}),
+                ImportMap({"a": "/static/a.js"}),
                 JS("app.js"),
-                ImportMap({"imports": {"b": "/static/b.js"}}),
+                ImportMap({"b": "/static/b.js"}),
             ],
         )
 
@@ -573,9 +571,9 @@ class GetItemTest(TestCase):
             nonce="n0nce",
             css={"all": [CSS("app.css")]},
             js=[
-                ImportMap({"imports": {"a": "/static/a.js"}}),
+                ImportMap({"a": "/static/a.js"}),
                 JS("app.js"),
-                ImportMap({"imports": {"b": "/static/b.js"}}),
+                ImportMap({"b": "/static/b.js"}),
             ],
         )
 
@@ -606,7 +604,7 @@ class GetItemTest(TestCase):
     def test_csp_nonce_attr_on_a_subset(self):
         # What Django's own admin templates do: {% csp_nonce_attr media.js %}.
         nonce = DjangoLazyNonce()
-        media = Media(js=[ImportMap({"imports": {"a": "/static/a.js"}}), JS("app.js")])
+        media = Media(js=[ImportMap({"a": "/static/a.js"}), JS("app.js")])
         self.assertEqual(
             nonce_attr({"csp_nonce": nonce}, media["js"]),
             f'<script type="importmap" nonce="{nonce}">'
