@@ -127,3 +127,9 @@ class MediaTest(TestCase):
 
     def test_is_immutable(self):
         self.assertFalse(hasattr(ImportMap({}), "update"))
+
+    def test_hash_consistent_with_equality(self):
+        a = ImportMap({"imports": {}}, async_=True)
+        b = ImportMap({"imports": {}}, async_=1)
+        self.assertEqual(a, b)
+        self.assertEqual(hash(a), hash(b))

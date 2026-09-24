@@ -138,8 +138,10 @@ class _JSONAsset(MediaAsset):
 
     def __hash__(self):
         # ``__eq__`` compares the underlying dict order-insensitively, so the
-        # hash must too -- see ``_canonical_hash``.
-        return hash((_canonical_hash(self._path), _canonical_hash(self.attributes)))
+        # hash must too -- see ``_canonical_hash``. Attributes are hashed like
+        # Django's ``MediaAsset`` does; serializing them would give equal
+        # attributes such as ``True`` and ``1`` different hashes.
+        return hash((_canonical_hash(self._path), frozenset(self.attributes.items())))
 
     def render(self, *, attrs=None, nonce=""):
         if nonce:

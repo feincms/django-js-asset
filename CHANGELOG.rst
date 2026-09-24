@@ -8,6 +8,8 @@ Next version
 ~~~~~~~~~~~~
 
 - ``js_asset.Media`` only runs ``Media.merge`` once when rendering scripts.
+- Equal ``ImportMap`` and ``JSON`` objects with attributes such as ``True``
+  and ``1`` have the same hash now.
 - **Backwards-incompatible:** Rendering an asset which has its own ``nonce``
   attribute through ``js_asset.Media`` with a nonce raises a ``ValueError``
   instead of silently replacing the asset's nonce, like Django's
