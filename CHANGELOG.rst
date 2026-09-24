@@ -7,6 +7,9 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+4.2 (2026-09-24)
+~~~~~~~~~~~~~~~~
+
 - ``ImportMap`` now copies the data it is given, so changing the original dict
   no longer changes the import map (and its hash).
 - Deprecated ``ImportMap.update()``, import maps will become immutable. Use
