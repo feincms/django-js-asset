@@ -231,6 +231,23 @@ class MediaTest(TestCase):
             '<script src="/static/app.js" nonce="r@nd0m" type="module"></script>',
         )
 
+    def test_later_importmaps_listed_first_override_earlier_ones(self):
+        # What the README recommends: import maps first in their ``js`` lists.
+        app = Media(js=[ImportMap({"imports": {"lib": "/app.js"}}), JS("shared.js")])
+        project = Media(
+            js=[
+                ImportMap({"imports": {"lib": "/project.js"}}),
+                JS("shared.js"),
+                JS("project.js"),
+            ]
+        )
+        expected = (
+            '<script type="importmap">{"imports": {"lib": "/project.js"}}</script>'
+        )
+        media = app + project
+        self.assertEqual(media.render().splitlines()[0], expected)
+        self.assertEqual(media["js"].render().splitlines()[0], expected)
+
     def test_type_and_nonce_preserved_when_merging(self):
         ours = Media(nonce="abc", js=[ImportMap({"imports": {"a": "/static/a.js"}})])
         plain = DjangoMedia(js=["app.js"])

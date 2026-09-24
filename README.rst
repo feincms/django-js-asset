@@ -161,6 +161,12 @@ many media objects were added together to get there:
         JS("code.js", {"type": "module"}),
     ])
 
+Put import maps at the start of their ``js`` lists. Import maps are merged in
+the order produced by ``Media.merge``; for import maps listed first that's the
+order media has been added together, so an import map added later (e.g. the
+project's) overrides entries of earlier ones (e.g. of apps). Import maps listed
+after other assets may end up in a different order.
+
 See `CSP nonces`_ below for per-request nonces.
 
 .. note::
