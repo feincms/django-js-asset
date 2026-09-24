@@ -11,6 +11,8 @@ Next version
   no longer changes the import map (and its hash).
 - Deprecated ``ImportMap.update()``, import maps will become immutable. Use
   ``map1 | map2`` or ``map1 |= map2`` instead.
+- ``ImportMap.render()`` accepts ``attrs=`` like Django's
+  ``MediaAsset.render()``. Empty import maps are falsy.
 
 4.1 (2026-08-28)
 ~~~~~~~~~~~~~~~~

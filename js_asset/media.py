@@ -172,8 +172,8 @@ class Media(forms.Media):
             ImportMap({}),
         )
         rendered = []
-        if importmap._importmap:
-            rendered.append(importmap.render(nonce=nonce))
+        if importmap:
+            rendered.append(importmap.render(attrs={"nonce": nonce} if nonce else None))
         for item in self._js:
             if isinstance(item, ImportMap):
                 continue

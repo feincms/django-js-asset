@@ -140,13 +140,18 @@ class ImportMap:
         # hash must too -- see ``_canonical_hash``.
         return _canonical_hash(self._importmap)
 
-    def render(self, *, nonce=""):
-        if self._importmap:
-            nonce_attr = mark_safe(flatatt({"nonce": nonce})) if nonce else ""
+    def __bool__(self):
+        return bool(self._importmap)
+
+    def render(self, *, attrs=None, nonce=""):
+        # ``attrs`` matches ``MediaAsset.render()``; ``nonce`` is kept for
+        # backwards compatibility.
+        if self:
+            attrs = ({"nonce": nonce} if nonce else {}) | (attrs or {})
             html = json_script(self._importmap).removeprefix(
                 '<script type="application/json">'
             )
-            return mark_safe(f'<script type="importmap"{nonce_attr}>{html}')
+            return mark_safe(f'<script type="importmap"{flatatt(attrs)}>{html}')
         return ""
 
     def __str__(self):

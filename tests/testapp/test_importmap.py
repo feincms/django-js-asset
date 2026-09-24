@@ -43,6 +43,26 @@ class MediaTest(TestCase):
 <script type="importmap">{"imports": {"a": "/static/a.js", "b": "/static/b.js", "/app/": "./original-app/", "/app/helper": "./helper/index.mjs"}, "integrity": {"/static/a.js": "sha384-blub-a", "/static/b.js": "sha384-blub-b"}, "scopes": {"/js": {"/app/": "./js-app/"}}}</script>""",
         )
 
+    def test_render_attrs(self):
+        importmap = ImportMap({"imports": {"a": "/static/a.js"}})
+        html = '{"imports": {"a": "/static/a.js"}}</script>'
+        self.assertEqual(
+            importmap.render(attrs={"nonce": "N", "data-x": "y"}),
+            f'<script type="importmap" data-x="y" nonce="N">{html}',
+        )
+        self.assertEqual(
+            importmap.render(nonce="N"), f'<script type="importmap" nonce="N">{html}'
+        )
+        self.assertEqual(
+            importmap.render(nonce="N", attrs={"data-x": "y"}),
+            f'<script type="importmap" data-x="y" nonce="N">{html}',
+        )
+        self.assertEqual(importmap.render(), f'<script type="importmap">{html}')
+
+    def test_bool(self):
+        self.assertFalse(ImportMap({}))
+        self.assertTrue(ImportMap({"imports": {"a": "/static/a.js"}}))
+
     def test_copies_the_data(self):
         data = {"imports": {"a": "/static/a.js"}}
         importmap = ImportMap(data)
