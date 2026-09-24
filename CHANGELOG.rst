@@ -8,6 +8,10 @@ Next version
 ~~~~~~~~~~~~
 
 - ``js_asset.Media`` only runs ``Media.merge`` once when rendering scripts.
+- **Backwards-incompatible:** Rendering an asset which has its own ``nonce``
+  attribute through ``js_asset.Media`` with a nonce raises a ``ValueError``
+  instead of silently replacing the asset's nonce, like Django's
+  ``MediaAsset.render(attrs=...)`` does since Django 6.1.
 - **Backwards-incompatible:** Removed the deprecated ``ImportMap.update()``.
   Import maps are immutable, use ``map1 | map2`` or ``map1 |= map2`` instead.
 - ``ImportMap`` is a ``MediaAsset`` now, like Django's ``Script``. On Django

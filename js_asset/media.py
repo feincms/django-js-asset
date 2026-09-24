@@ -200,6 +200,13 @@ class Media(forms.Media):
         if isinstance(asset, MediaAsset):
             if not nonce:
                 return asset.__html__()
+            if "nonce" in asset.attributes:
+                # Raise like Django's ``MediaAsset.render(attrs=)`` (>= 6.1)
+                # instead of silently replacing the asset's own nonce, so the
+                # behavior doesn't depend on which ``Media`` class renders.
+                raise ValueError(
+                    f"{asset.__class__.__qualname__} has conflicting attributes: nonce"
+                )
             # Inject the nonce ourselves rather than via MediaAsset.render(
             # attrs=), which only exists on Django >= 6.1. Rebuilding the tag
             # from ``element_template`` keeps output identical on every

@@ -286,6 +286,9 @@ applied when the media is rendered, not when it is constructed.
 stylesheet it renders. There are a few ways to get the nonce in, depending on
 your Django version.
 
+Don't pass a ``nonce`` attribute to assets themselves: Like Django's own
+``forms.Media``, rendering such an asset with a nonce raises a ``ValueError``.
+
 Django 6.1 and newer (built-in CSP)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -210,6 +210,28 @@ class MediaTest(TestCase):
             html,
         )
 
+    def test_nonce_conflicts_with_asset_nonce(self):
+        for asset in [
+            JS("app.js", {"nonce": "own"}),
+            ImportMap({"imports": {"a": "/static/a.js"}}, nonce="own"),
+        ]:
+            with self.subTest(asset=asset):
+                media = Media(nonce="r@nd0m", js=[asset])
+                with self.assertRaisesMessage(
+                    ValueError, "has conflicting attributes: nonce"
+                ):
+                    media.render()
+                # Without a nonce to apply, the asset's own nonce is rendered.
+                self.assertIn('nonce="own"', Media(js=[asset]).render())
+
+    @skipIf(nonce_attr is None, "Django < 6.1 has no built-in CSP support")
+    def test_nonce_conflict_matches_django(self):
+        asset = JS("app.js", {"nonce": "own"})
+        with self.assertRaisesMessage(ValueError, "has conflicting attributes: nonce"):
+            DjangoMedia(js=[asset]).render(attrs={"nonce": "r@nd0m"})
+        with self.assertRaisesMessage(ValueError, "has conflicting attributes: nonce"):
+            Media(js=[asset]).render(attrs={"nonce": "r@nd0m"})
+
     def test_no_nonce_keeps_plain_output(self):
         media = Media(js=[JS("app.js")])
         self.assertEqual(media.render(), '<script src="/static/app.js"></script>')
