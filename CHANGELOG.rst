@@ -31,9 +31,11 @@ Next version
 - Deprecated ``ImportMap.update()``, import maps will become immutable. Use
   ``map1 | map2`` or ``map1 |= map2`` instead.
 - ``ImportMap.render()`` accepts ``attrs=`` like Django's
-  ``MediaAsset.render()``. Empty import maps are falsy.
+  ``MediaAsset.render()``. Empty import maps are falsy (this has been removed
+  again in the next major version, see above).
 - ``JSON.render()`` accepts ``attrs=`` too. It is ignored like ``nonce=``, since
-  JSON data blocks are not governed by CSP.
+  JSON data blocks are not governed by CSP (``attrs=`` is no longer ignored in
+  the next major version, see above).
 
 4.1 (2026-08-28)
 ~~~~~~~~~~~~~~~~
