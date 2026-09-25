@@ -7,6 +7,10 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+- ``js_asset.Media`` takes an ``importmap=`` argument. Import maps passed this
+  way are merged when adding media objects (the media added later wins) and
+  rendered by ``{{ media }}`` and ``{{ media.importmap }}``. Import maps in
+  ``js`` lists keep working.
 - ``ImportMap`` takes the ``imports`` of the import map now, and ``scopes=``
   and ``integrity=`` keyword arguments: ``ImportMap({"lib": "lib.js"})``.
   Relative paths are passed through ``static()`` when rendering, like ``JS``

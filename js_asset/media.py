@@ -12,15 +12,29 @@ from js_asset.js import CSS, JS, ImportMap
 __all__ = ["Media"]
 
 
+def _merge(first, second):
+    if first is None:
+        return second
+    if second is None:
+        return first
+    return first | second
+
+
+def _importmap_from_js(js):
+    importmaps = [asset for asset in js if isinstance(asset, ImportMap)]
+    return reduce(operator.or_, importmaps) if importmaps else None
+
+
 class Media(forms.Media):
     """
     A ``forms.Media`` subclass with two extra abilities:
 
-    * It merges all :class:`~js_asset.js.ImportMap` objects found in its assets
-      into a single ``<script type="importmap">`` tag, rendered before any
-      other script. This avoids the need for a global importmap which is always
-      the same regardless of the assets actually required by the current code
-      path.
+    * It holds an import map (``importmap=``), merges the import maps of media
+      added together, and also merges all :class:`~js_asset.js.ImportMap`
+      objects found in its ``js`` assets. The result is a single
+      ``<script type="importmap">`` tag, rendered before any other script.
+      This avoids the need for a global importmap which is always the same
+      regardless of the assets actually required by the current code path.
     * It applies a (request-scoped) CSP ``nonce`` to the rendered tags.
 
     Because it implements both ``__add__`` and ``__radd__`` it preserves its
@@ -30,9 +44,12 @@ class Media(forms.Media):
     it ended up on the right-hand side of an addition.
     """
 
-    def __init__(self, media=None, *, nonce="", css=None, js=None):
+    def __init__(self, media=None, *, nonce="", css=None, js=None, importmap=None):
         self.nonce = nonce
         super().__init__(media=media, css=css, js=js)
+        if media is not None:
+            importmap = getattr(media, "importmap", None)
+        self._importmap = importmap
 
     # -- Normalization ----------------------------------------------------
 
@@ -80,7 +97,7 @@ class Media(forms.Media):
         assets from a media *definition* (with ``css``/``js`` attributes), not
         from a media *instance*.
         """
-        clone = cls(nonce=nonce)
+        clone = cls(nonce=nonce, importmap=getattr(media, "_importmap", None))
         clone._css_lists = media._css_lists[:]
         clone._js_lists = media._js_lists[:]
         return clone
@@ -103,6 +120,10 @@ class Media(forms.Media):
         for item in second._js_lists:
             if item and item not in combined._js_lists:
                 combined._js_lists.append(item)
+        # Import maps are merged right away, so the media added later wins.
+        combined._importmap = _merge(
+            getattr(first, "_importmap", None), getattr(second, "_importmap", None)
+        )
         return combined
 
     def __add__(self, other):
@@ -118,6 +139,10 @@ class Media(forms.Media):
     # -- Access -----------------------------------------------------------
 
     def __getitem__(self, name):
+        if name == "importmap":
+            # ``{{ media.importmap }}``, only the ``importmap=`` import map.
+            # Import maps in ``js`` are still rendered by ``media["js"]``.
+            return Media(nonce=self.nonce, importmap=self._importmap)
         # Django's ``__getitem__`` hardcodes ``forms.Media``, so ``media["js"]``
         # -- reached from templates as ``{{ media.js }}``, and used by the admin
         # as ``{% csp_nonce_attr media.js %}`` -- would drop our type, and with
@@ -128,9 +153,25 @@ class Media(forms.Media):
 
     def render(self, *, nonce=None, attrs=None):
         nonce = self._resolve_nonce(nonce, attrs)
+        # ``_js`` runs ``Media.merge`` on every access, so only read it once.
+        js = self._js
+        # A single import map: the one from ``js`` merged with ``importmap=``.
+        importmap = _merge(_importmap_from_js(js), self._importmap)
         return mark_safe(
-            "\n".join(filter(None, [*self._render_css(nonce), *self._render_js(nonce)]))
+            "\n".join(
+                filter(
+                    None,
+                    [
+                        *self._render_importmap(importmap, nonce),
+                        *self._render_css(nonce),
+                        *self._render_js(nonce, js=js, importmaps=False),
+                    ],
+                )
+            )
         )
+
+    def render_importmap(self, *, attrs=None):
+        return self._render_importmap(self._importmap, self._resolve_nonce(None, attrs))
 
     def render_css(self, *, attrs=None):
         return self._render_css(self._resolve_nonce(None, attrs))
@@ -162,17 +203,23 @@ class Media(forms.Media):
             # media does not generate a nonce (and add it to the CSP header).
             # ``isinstance`` is no use for the check: a lazy object reports the
             # wrapped value's class -- and evaluates itself while doing so.
-            nonce = str(nonce) if any(self._js_lists) or any(self._css_lists) else ""
+            nonce = (
+                str(nonce)
+                if any(self._js_lists) or any(self._css_lists) or self._importmap
+                else ""
+            )
         return nonce
 
-    def _render_js(self, nonce):
-        # ``_js`` runs ``Media.merge`` on every access, so only read it once.
-        js = self._js
-        importmaps = [asset for asset in js if isinstance(asset, ImportMap)]
+    def _render_importmap(self, importmap, nonce):
+        return [self._render_asset(importmap, nonce)] if importmap is not None else []
+
+    def _render_js(self, nonce, *, js=None, importmaps=True):
+        if js is None:
+            # ``_js`` runs ``Media.merge`` on every access, so only read it once.
+            js = self._js
         rendered = []
         if importmaps:
-            importmap = reduce(operator.or_, importmaps)
-            rendered.append(self._render_asset(importmap, nonce))
+            rendered.extend(self._render_importmap(_importmap_from_js(js), nonce))
         for item in js:
             if isinstance(item, ImportMap):
                 continue

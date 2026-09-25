@@ -180,6 +180,27 @@ order media has been added together, so an import map added later (e.g. the
 project's) overrides entries of earlier ones (e.g. of apps). Import maps listed
 after other assets may end up in a different order.
 
+``js_asset.Media`` also takes an import map as a separate ``importmap=``
+argument, as proposed for Django itself:
+
+.. code-block:: python
+
+    media = Media(
+        importmap=ImportMap({"my-library": "my-library.js"}),
+        js=[JS("code.js", {"type": "module"})],
+    )
+
+These import maps are merged right away when adding media objects, so the
+media added later wins, and they override entries of import maps in ``js``
+lists. ``{{ media }}`` renders a single import map combining both;
+``{{ media.importmap }}`` renders only the ``importmap=`` import map, and
+``{{ media.js }}`` only the import maps in ``js`` lists.
+
+Import maps in ``js`` lists are still needed in ``class Media`` definitions,
+since Django's ``forms.Media`` doesn't know about ``importmap``. They also work
+in templates which only render ``{{ media.js }}``, such as the admin's change
+list.
+
 See `CSP nonces`_ below for per-request nonces.
 
 .. note::
@@ -211,10 +232,10 @@ the context:
     from js_asset import ImportMap, JS, Media
 
     def dashboard(request):
-        media = Media(js=[
-            ImportMap({"chart": "chart/index.js"}),
-            JS("dashboard.js", {"type": "module"}),
-        ])
+        media = Media(
+            importmap=ImportMap({"chart": "chart/index.js"}),
+            js=[JS("dashboard.js", {"type": "module"})],
+        )
         return render(request, "dashboard.html", {"media": media})
 
 ``form.media`` is already a ``js_asset.Media`` as soon as one of its widgets
@@ -229,10 +250,10 @@ work, because ``forms.Media`` copies from a media *definition*, not an
 
     def edit(request):
         form = MyForm()
-        page = Media(js=[
-            ImportMap({"editor": "editor/index.js"}),
-            JS("editor/init.js", {"type": "module"}),
-        ])
+        page = Media(
+            importmap=ImportMap({"editor": "editor/index.js"}),
+            js=[JS("editor/init.js", {"type": "module"})],
+        )
         media = page + form.media            # or: Media.from_media(form.media)
         return render(request, "edit.html", {"form": form, "media": media})
 

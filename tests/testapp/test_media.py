@@ -611,3 +611,84 @@ class GetItemTest(TestCase):
             '{"imports": {"a": "/static/a.js"}}</script>\n'
             f'<script src="/static/app.js" nonce="{nonce}"></script>',
         )
+
+
+class ImportMapArgumentTest(TestCase):
+    def test_rendered_first(self):
+        media = Media(
+            importmap=ImportMap({"a": "/static/a.js"}),
+            css={"all": [CSS("app.css")]},
+            js=[JS("app.js", {"type": "module"})],
+        )
+        self.assertEqual(
+            media.render(attrs={"nonce": "n"}),
+            '<script type="importmap" nonce="n">{"imports": {"a": "/static/a.js"}}'
+            "</script>\n"
+            '<link href="/static/app.css" media="all" nonce="n" rel="stylesheet">\n'
+            '<script src="/static/app.js" nonce="n" type="module"></script>',
+        )
+
+    def test_merged_when_adding(self):
+        app = Media(importmap=ImportMap({"lib": "/app.js", "app": "/app/app.js"}))
+        project = Media(importmap=ImportMap({"lib": "/project.js"}))
+        self.assertEqual(
+            str(app + project),
+            '<script type="importmap">{"imports": {"lib": "/project.js",'
+            ' "app": "/app/app.js"}}</script>',
+        )
+        # Also with a plain forms.Media on either side.
+        self.assertEqual(str(DjangoMedia() + project), str(project))
+        self.assertEqual(str(project + DjangoMedia()), str(project))
+
+    def test_media_definition(self):
+        class Definition:
+            importmap = ImportMap({"a": "/static/a.js"})
+            js = ("app.js",)
+
+        self.assertEqual(
+            str(Media(Definition)),
+            '<script type="importmap">{"imports": {"a": "/static/a.js"}}</script>\n'
+            '<script src="/static/app.js"></script>',
+        )
+
+    def test_getitem(self):
+        media = Media(
+            importmap=ImportMap({"a": "/static/a.js"}),
+            js=[ImportMap({"b": "/static/b.js"}), JS("app.js")],
+        )
+        self.assertEqual(
+            str(media["importmap"]),
+            '<script type="importmap">{"imports": {"a": "/static/a.js"}}</script>',
+        )
+        # Import maps in js are still rendered by media["js"].
+        self.assertEqual(
+            str(media["js"]),
+            '<script type="importmap">{"imports": {"b": "/static/b.js"}}</script>\n'
+            '<script src="/static/app.js"></script>',
+        )
+        self.assertEqual(str(media["css"]), "")
+
+    def test_merged_with_import_maps_in_js(self):
+        media = Media(
+            importmap=ImportMap({"lib": "/project.js"}),
+            js=[ImportMap({"lib": "/app.js", "app": "/app/app.js"}), JS("app.js")],
+        )
+        self.assertEqual(
+            str(media),
+            '<script type="importmap">{"imports": {"lib": "/project.js",'
+            ' "app": "/app/app.js"}}</script>\n'
+            '<script src="/static/app.js"></script>',
+        )
+
+    def test_kept_when_copying(self):
+        media = Media(importmap=ImportMap({"a": "/static/a.js"}))
+        self.assertEqual(
+            str(media.with_nonce("n")), str(media).replace(">", ' nonce="n">', 1)
+        )
+        self.assertEqual(str(Media.from_media(media)), str(media))
+
+    def test_lazy_nonce_resolved_for_import_map_only(self):
+        media = Media(importmap=ImportMap({"a": "/static/a.js"}))
+        self.assertIn(
+            'nonce="n0nce"', media.render(attrs={"nonce": LazyNonce("n0nce")})
+        )
