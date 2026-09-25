@@ -160,7 +160,7 @@ class MediaTest(TestCase):
 class DeprecatedFullImportMapTest(TestCase):
     """
     ``ImportMap`` used to take a full import map. That still works, with a
-    deprecation warning, and its paths are never passed through ``static()``.
+    deprecation warning.
     """
 
     def full(self, data):
@@ -187,19 +187,18 @@ class DeprecatedFullImportMapTest(TestCase):
 <script type="importmap">{"imports": {"a": "/static/a.js", "b": "/static/b.js"}, "integrity": {"/static/a.js": "sha384-blub-a", "/static/b.js": "sha384-blub-b"}}</script>""",
         )
 
-    def test_paths_are_not_resolved(self):
+    def test_paths_are_resolved(self):
         importmap = self.full(
             {
                 "imports": {"a": "app/a.js", "lazy": static_lazy("lazy.js")},
                 "scopes": {"/x/": {"b": "app/b.js"}},
             }
         )
-        # Merging with a new-style import map keeps the old paths as they are.
         self.assertEqual(
             str(importmap | ImportMap({"c": "app/c.js"})),
-            '<script type="importmap">{"imports": {"a": "app/a.js",'
+            '<script type="importmap">{"imports": {"a": "/static/app/a.js",'
             ' "lazy": "/static/lazy.js", "c": "/static/app/c.js"},'
-            ' "scopes": {"/x/": {"b": "app/b.js"}}}</script>',
+            ' "scopes": {"/x/": {"b": "/static/app/b.js"}}}</script>',
         )
 
     def test_equal_to_new_form(self):

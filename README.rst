@@ -171,9 +171,8 @@ etc.), paths starting with ``/``, ``./`` or ``../`` and paths ending with ``/``
 
 .. note::
 
-   Passing a full import map (``ImportMap({"imports": {...}})``) is deprecated.
-   It still works, but its paths are used as they are and never passed through
-   ``static()``.
+   Passing a full import map (``ImportMap({"imports": {...}})``) is deprecated,
+   but still works.
 
 Put import maps at the start of their ``js`` lists. Import maps are merged in
 the order produced by ``Media.merge``; for import maps listed first that's the

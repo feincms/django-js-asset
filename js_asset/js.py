@@ -198,18 +198,7 @@ _URL_WITH_SCHEME = re.compile(r"^[a-z]+:")
 _UNRESOLVED_PREFIXES = ("/", "./", "../")
 
 
-class _Verbatim(str):
-    """
-    A path from a full import map (the deprecated form), which has never been
-    passed through ``static()``. Keep rendering it as it is.
-    """
-
-    __slots__ = ()
-
-
 def _resolve(path):
-    if isinstance(path, _Verbatim):
-        return str(path)
     path = str(path)  # Resolves lazy strings such as ``static_lazy`` paths.
     if (
         _URL_WITH_SCHEME.match(path)
@@ -227,13 +216,6 @@ def _is_full_importmap(imports):
         key in _IMPORTMAP_KEYS and isinstance(value, dict)
         for key, value in imports.items()
     )
-
-
-def _verbatim(imports):
-    return {
-        key: _Verbatim(path) if type(path) is str else path
-        for key, path in imports.items()
-    }
 
 
 class ImportMap(_JSONAsset):
@@ -264,16 +246,7 @@ class ImportMap(_JSONAsset):
                 DeprecationWarning,
                 stacklevel=2,
             )
-            # Paths of full import maps have never been resolved through
-            # ``static()``, so keep them as they are.
-            data = dict(imports)
-            if "imports" in data:
-                data["imports"] = _verbatim(data["imports"])
-            if "scopes" in data:
-                data["scopes"] = {
-                    scope: _verbatim(scope_imports)
-                    for scope, scope_imports in data["scopes"].items()
-                }
+            data = imports
         else:
             data = {}
             if imports:
