@@ -161,7 +161,7 @@ class _JSONAsset(MediaAsset):
         return format_html(
             self.element_template,
             path=self.path,
-            attributes=flatatt({**(attrs or {}), **self.attributes}),
+            attributes=flatatt((attrs or {}) | self.attributes),
         )
 
     def __str__(self):
@@ -311,7 +311,7 @@ class ImportMap:
         )
         return format_html(
             '<script type="importmap"{}>{}</script>',
-            flatatt({**(attrs or {}), **self.attributes}),
+            flatatt((attrs or {}) | self.attributes),
             mark_safe(serialized),
         )
 

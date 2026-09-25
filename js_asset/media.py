@@ -250,7 +250,7 @@ class Media(forms.Media):
             return format_html(
                 asset.element_template,
                 path=asset.path,
-                attributes=flatatt({**asset.attributes, "nonce": nonce}),
+                attributes=flatatt(asset.attributes | {"nonce": nonce}),
             )
         # Any other asset follows Django's plain ``__html__`` media contract
         # (an object that only knows how to render itself). Mirror
