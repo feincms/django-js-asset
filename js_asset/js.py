@@ -158,6 +158,12 @@ class _JSONAsset(MediaAsset):
             )
             attrs = {"nonce": nonce} | (attrs or {})
         # Django's ``MediaAsset.render(attrs=)`` doesn't exist on 5.2 and 6.0.
+        # Raise on conflicting attributes like it does.
+        if attrs and (conflicts := attrs.keys() & self.attributes.keys()):
+            raise ValueError(
+                f"{self.__class__.__qualname__} has conflicting attributes: "
+                + ", ".join(sorted(conflicts))
+            )
         return format_html(
             self.element_template,
             path=self.path,

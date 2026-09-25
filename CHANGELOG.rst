@@ -47,7 +47,8 @@ Next version
 - **Backwards-incompatible:** ``JSON.render(attrs=...)`` no longer ignores
   ``attrs``, and JSON blocks rendered through ``js_asset.Media`` with a nonce
   get the nonce attribute too. It's harmless, JSON data blocks are not
-  governed by CSP.
+  governed by CSP. ``JSON.render(attrs=...)`` raises a ``ValueError`` for
+  attributes the asset defines itself, like Django's ``MediaAsset.render()``.
 
 4.2 (2026-09-24)
 ~~~~~~~~~~~~~~~~

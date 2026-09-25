@@ -215,6 +215,17 @@ class MediaTest(TestCase):
                 # Without a nonce to apply, the asset's own nonce is rendered.
                 self.assertIn('nonce="own"', Media(**kwargs).render())
 
+    def test_json_conflicting_attributes(self):
+        asset = JSON({"a": 1}, id="cfg", nonce="own")
+        with self.assertRaisesMessage(
+            ValueError, "JSON has conflicting attributes: nonce"
+        ):
+            asset.render(attrs={"nonce": "r@nd0m"})
+        with self.assertRaisesMessage(
+            ValueError, "JSON has conflicting attributes: type"
+        ):
+            JSON({"a": 1}).render(attrs={"type": "text/plain"})
+
     @skipIf(nonce_attr is None, "Django < 6.1 has no built-in CSP support")
     def test_nonce_conflict_matches_django(self):
         asset = JS("app.js", {"nonce": "own"})
