@@ -66,9 +66,9 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
 - `js_asset/js.py` — `JS`/`CSS` are **factories** (a `_ProducesAsset`
   metaclass): calling them returns a Django `Script`/`Stylesheet`/`InlineStyle`
   so they dedup in `forms.Media.merge` against native assets *and* bare path
-  strings; `isinstance(x, JS)` still works via `__instancecheck__`. `JSON` and
-  `ImportMap` have no Django counterpart; they are `MediaAsset` subclasses
-  sharing `_JSONAsset`, whose `path` is the escaped JSON (like `InlineStyle`)
+  strings; `isinstance(x, JS)` still works via `__instancecheck__`. `JSON` has no
+  Django counterpart; it is a `MediaAsset` subclass based on `_JSONAsset`,
+  whose `path` is the escaped JSON (like `InlineStyle`)
   and which defines its own `render(*, attrs=None)` (Django's lacks `attrs=`
   on 5.2/6.0; `nonce=` is deprecated) and order-insensitive `__eq__`/`__hash__`
   (Django < 6.2 compares the rendered `path`). Output is byte-identical to native Django
@@ -80,33 +80,35 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   `nav &gt; a` would simply not match. The constructor rejects CSS containing
   `</style` — the only sequence which could close the element early — which is
   what keeps the unescaped output safe.
-- `ImportMap` copies the data it is given and is meant to be immutable (it is
-  hashable, `Media.merge` relies on it); combine with `|` / `|=`. `update()`
-  was deprecated in 4.2 and has been removed. The import maps DEP
-  draft in `../deps/draft/0000-import-maps.rst` is the design target, and
-  this package its reference implementation.
-- `js_asset/media.py` — `Media(forms.Media)` subclass: merges embedded
-  `ImportMap`s into one tag, applies a nonce, and normalizes js/css entries by
+- `ImportMap` is **not** a `MediaAsset`: it is passed as
+  `Media(importmap=...)`, never in `js` lists (rendering one there raises a
+  `TypeError`, checked on `_js_lists` before `Media.merge` would fail on the
+  unhashable map). It renders itself (`render(attrs=)` with the same conflict
+  check as `MediaAsset.render()`), copies the data it is given and is
+  immutable; combine with `|` / `|=`. `update()` was deprecated in 4.2 and has
+  been removed. The import maps DEP draft in
+  `../deps/draft/0022-import-maps.rst` is the design target, and this package
+  its reference implementation.
+- `js_asset/media.py` — `Media(forms.Media)` subclass: holds a single
+  `ImportMap` (`importmap=`, merged with `|` when adding media), applies a
+  nonce, and normalizes js/css entries by
   the `__html__` predicate (see the html-safe-string note above). Implements `__add__` **and**
   `__radd__` so it keeps its type (and nonce) when combined with plain
   `forms.Media` from either side. The nonce lives on the instance (constructor
   `nonce=` or `with_nonce()` returning a copy); `render()` reads it, since
   templates call `render()` with no arguments.
-- **Every way *out* of a `Media` must keep the nonce and the import-map
-  merging**, not just `render()`: `render_css()`/`render_js()` (public
-  `forms.Media` API, and what Django's own `render()` calls) and `__getitem__`
-  (`{{ media.css }}`/`{{ media.js }}`; the admin change list renders
-  `{% csp_nonce_attr media.js %}`) are overridden for exactly that reason —
+- **Every way *out* of a `Media` must keep the nonce and the import map**,
+  not just `render()`: `render_importmap()`/`render_css()`/`render_js()`
+  (public API, and what `render()` calls) and `__getitem__`
+  (`{{ media.importmap }}`/`{{ media.css }}`/`{{ media.js }}`) are overridden
+  for exactly that reason —
   Django's `__getitem__` hardcodes `forms.Media`. Add a test to
   `GetItemTest`/`RenderPartsTest` when a new accessor appears.
-- Import maps are merged in the `Media.merge` order of `_js`. With the map
-  **first** in each `js` list (what the README recommends) that is the order
-  media has been added together, since list heads have no predecessors and
-  the sort emits them first-seen first; so the project's map overrides the
-  apps'. A map further down a list can end up before an earlier-added one.
-  Merging over `_js_lists` would fix that but means every way of building a
-  new `Media` (incl. `__getitem__`) must keep the lists -- deliberately not
-  done (#38, and a caveat in the DEP).
+- Import maps are merged in the order media objects are added together, in
+  `_combine()`, so the media added later (e.g. the project's) wins.
+  `{{ media.js }}` doesn't render the import map; the admin change list only
+  renders `{% csp_nonce_attr media.js %}`, the README shows the template
+  override adding `{{ media.importmap }}`.
 - **Never truth-test a nonce that did not come from us.** Django's `LazyNonce`
   (the `csp_nonce` context value, passed straight through by
   `{% csp_nonce_attr media %}`) is falsy until it is first read, and

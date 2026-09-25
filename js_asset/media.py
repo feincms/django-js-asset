@@ -1,6 +1,3 @@
-import operator
-from functools import reduce
-
 from django import forms
 from django.forms.utils import flatatt
 from django.utils.html import format_html, mark_safe
@@ -20,19 +17,13 @@ def _merge(first, second):
     return first | second
 
 
-def _importmap_from_js(js):
-    importmaps = [asset for asset in js if isinstance(asset, ImportMap)]
-    return reduce(operator.or_, importmaps) if importmaps else None
-
-
 class Media(forms.Media):
     """
     A ``forms.Media`` subclass with two extra abilities:
 
-    * It holds an import map (``importmap=``), merges the import maps of media
-      added together, and also merges all :class:`~js_asset.js.ImportMap`
-      objects found in its ``js`` assets. The result is a single
-      ``<script type="importmap">`` tag, rendered before any other script.
+    * It holds an import map (``importmap=``) and merges the import maps of
+      media added together. The result is a single ``<script type="importmap">``
+      tag, rendered before any other script.
       This avoids the need for a global importmap which is always the same
       regardless of the assets actually required by the current code path.
     * It applies a (request-scoped) CSP ``nonce`` to the rendered tags.
@@ -140,38 +131,33 @@ class Media(forms.Media):
 
     def __getitem__(self, name):
         if name == "importmap":
-            # ``{{ media.importmap }}``, only the ``importmap=`` import map.
-            # Import maps in ``js`` are still rendered by ``media["js"]``.
+            # ``{{ media.importmap }}``
             return Media(nonce=self.nonce, importmap=self._importmap)
         # Django's ``__getitem__`` hardcodes ``forms.Media``, so ``media["js"]``
         # -- reached from templates as ``{{ media.js }}``, and used by the admin
         # as ``{% csp_nonce_attr media.js %}`` -- would drop our type, and with
-        # it the nonce and the import-map merging.
+        # it the nonce.
         return self.from_media(super().__getitem__(name), nonce=self.nonce)
 
     # -- Rendering --------------------------------------------------------
 
     def render(self, *, nonce=None, attrs=None):
         nonce = self._resolve_nonce(nonce, attrs)
-        # ``_js`` runs ``Media.merge`` on every access, so only read it once.
-        js = self._js
-        # A single import map: the one from ``js`` merged with ``importmap=``.
-        importmap = _merge(_importmap_from_js(js), self._importmap)
         return mark_safe(
             "\n".join(
                 filter(
                     None,
                     [
-                        *self._render_importmap(importmap, nonce),
+                        *self._render_importmap(nonce),
                         *self._render_css(nonce),
-                        *self._render_js(nonce, js=js, importmaps=False),
+                        *self._render_js(nonce),
                     ],
                 )
             )
         )
 
     def render_importmap(self, *, attrs=None):
-        return self._render_importmap(self._importmap, self._resolve_nonce(None, attrs))
+        return self._render_importmap(self._resolve_nonce(None, attrs))
 
     def render_css(self, *, attrs=None):
         return self._render_css(self._resolve_nonce(None, attrs))
@@ -179,8 +165,8 @@ class Media(forms.Media):
     def render_js(self, *, attrs=None):
         # ``render_{css,js}`` are part of ``forms.Media``'s public API (and are
         # what Django's own ``render()`` calls), so they have to apply the nonce
-        # and hoist import maps as well -- otherwise anything rendering the
-        # media through them silently loses both. The ``attrs`` keyword only
+        # as well -- otherwise anything rendering the media through them
+        # silently loses it. The ``attrs`` keyword only
         # exists on Django >= 6.1; accepting it keeps the signature compatible.
         return self._render_js(self._resolve_nonce(None, attrs))
 
@@ -210,19 +196,21 @@ class Media(forms.Media):
             )
         return nonce
 
-    def _render_importmap(self, importmap, nonce):
-        return [self._render_asset(importmap, nonce)] if importmap is not None else []
+    def _render_importmap(self, nonce):
+        if self._importmap is None:
+            return []
+        return [self._importmap.render(attrs={"nonce": nonce} if nonce else None)]
 
-    def _render_js(self, nonce, *, js=None, importmaps=True):
-        if js is None:
-            # ``_js`` runs ``Media.merge`` on every access, so only read it once.
-            js = self._js
+    def _render_js(self, nonce):
+        # Check before ``_js`` runs ``Media.merge``, which would fail with a
+        # less helpful error since import maps aren't hashable.
+        if any(isinstance(item, ImportMap) for js in self._js_lists for item in js):
+            raise TypeError(
+                "Import maps in js lists aren't supported anymore, pass them"
+                " as Media(importmap=...) instead."
+            )
         rendered = []
-        if importmaps:
-            rendered.extend(self._render_importmap(_importmap_from_js(js), nonce))
-        for item in js:
-            if isinstance(item, ImportMap):
-                continue
+        for item in self._js:
             # ``hasattr(item, "__html__")`` -- not ``isinstance(item, str)``:
             # ``SafeString`` is a ``str`` subclass, and html-safe strings such
             # as ``mark_safe("<script defer src=...></script>")`` are complete

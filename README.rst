@@ -146,20 +146,20 @@ URLs produced by Django's ``ManifestStaticFilesStorage`` -- without rewriting
 the imports in your JavaScript.
 
 Browsers do not reliably support more than one import map per page, so all of
-them have to be merged into one. ``js_asset.Media`` does this for you: drop
-``ImportMap`` objects into your media wherever they are relevant -- typically
-next to the module that needs them -- and they are combined into a single
-``<script type="importmap">`` rendered before every other script, no matter how
-many media objects were added together to get there:
+them have to be merged into one. ``js_asset.Media`` does this for you: pass an
+``ImportMap`` to your media wherever it is relevant -- typically next to the
+module that needs it -- and the import maps of all media objects added together
+are combined into a single ``<script type="importmap">``, rendered before every
+other script:
 
 .. code-block:: python
 
     from js_asset import ImportMap, JS, Media
 
-    media = Media(js=[
-        ImportMap({"my-library": "my-library.js"}),
-        JS("code.js", {"type": "module"}),
-    ])
+    media = Media(
+        importmap=ImportMap({"my-library": "my-library.js"}),
+        js=[JS("code.js", {"type": "module"})],
+    )
 
 ``ImportMap`` takes the ``imports`` of the import map, and ``scopes=`` and
 ``integrity=`` keyword arguments for the other parts. Paths are resolved when
@@ -174,32 +174,27 @@ etc.), paths starting with ``/``, ``./`` or ``../`` and paths ending with ``/``
    Passing a full import map (``ImportMap({"imports": {...}})``) is deprecated,
    but still works.
 
-Put import maps at the start of their ``js`` lists. Import maps are merged in
-the order produced by ``Media.merge``; for import maps listed first that's the
-order media has been added together, so an import map added later (e.g. the
-project's) overrides entries of earlier ones (e.g. of apps). Import maps listed
-after other assets may end up in a different order.
+Import maps are merged when adding media objects, so the media added later
+(e.g. the project's) overrides entries of earlier ones (e.g. of apps).
+``{{ media }}`` renders the import map, the CSS and the JavaScript;
+``{{ media.importmap }}`` renders only the import map, and ``{{ media.js }}``
+doesn't include it.
 
-``js_asset.Media`` also takes an import map as a separate ``importmap=``
-argument, as proposed for Django itself:
+.. note::
 
-.. code-block:: python
+   Import maps aren't media assets: Adding them to ``js`` lists isn't
+   supported anymore, and ``js_asset.Media`` raises a ``TypeError`` when
+   rendering them. Django's ``forms.Media`` doesn't know about import maps, so
+   widgets and forms can't use ``class Media`` for them. Define ``media``
+   directly instead:
 
-    media = Media(
-        importmap=ImportMap({"my-library": "my-library.js"}),
-        js=[JS("code.js", {"type": "module"})],
-    )
+   .. code-block:: python
 
-These import maps are merged right away when adding media objects, so the
-media added later wins, and they override entries of import maps in ``js``
-lists. ``{{ media }}`` renders a single import map combining both;
-``{{ media.importmap }}`` renders only the ``importmap=`` import map, and
-``{{ media.js }}`` only the import maps in ``js`` lists.
-
-Import maps in ``js`` lists are still needed in ``class Media`` definitions,
-since Django's ``forms.Media`` doesn't know about ``importmap``. They also work
-in templates which only render ``{{ media.js }}``, such as the admin's change
-list.
+       class EditorWidget(forms.Textarea):
+           media = Media(
+               importmap=ImportMap({"editor": "editor/index.js"}),
+               js=[JS("editor/init.js", {"type": "module"})],
+           )
 
 See `CSP nonces`_ below for per-request nonces.
 
@@ -282,12 +277,10 @@ map returns a ``js_asset.Media``:
     from js_asset import ImportMap, JS, Media
 
     class EditorWidget(forms.Textarea):
-        @property
-        def media(self):
-            return Media(js=[
-                ImportMap({"editor": "editor/index.js"}),
-                JS("editor/init.js", {"type": "module"}),
-            ])
+        media = Media(
+            importmap=ImportMap({"editor": "editor/index.js"}),
+            js=[JS("editor/init.js", {"type": "module"})],
+        )
 
     class ArticleForm(forms.ModelForm):
         class Meta:
@@ -308,6 +301,20 @@ own scripts. The same widget works unchanged outside the admin.
 The admin adds ``ModelAdmin.media`` before the media of forms, widgets and
 inlines, so an import map on a ``ModelAdmin`` cannot override entries of import
 maps added by widgets.
+
+The admin's change list renders ``{{ media.css }}`` and ``{{ media.js }}``
+separately, so it doesn't render import maps, e.g. of widgets used with
+``list_editable``. Add them using a template which extends the admin's own:
+
+.. code-block:: html+django
+
+    {# templates/admin/change_list.html #}
+    {% extends "admin/change_list.html" %}
+
+    {% block extrahead %}{{ media.importmap }}{{ block.super }}{% endblock %}
+
+Use ``{% csp_nonce_attr media.importmap %}`` instead of ``{{ media.importmap }}``
+with Django's CSP support (Django 6.1 and newer).
 
 
 CSP nonces

@@ -9,7 +9,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.forms.utils import flatatt
 from django.templatetags.static import static
 from django.utils.functional import lazy
-from django.utils.html import format_html, json_script, mark_safe
+from django.utils.html import format_html, html_safe, json_script, mark_safe
 
 from js_asset._compat import MediaAsset, Script, Stylesheet
 
@@ -214,7 +214,8 @@ def _is_full_importmap(imports):
     )
 
 
-class ImportMap(_JSONAsset):
+@html_safe
+class ImportMap:
     """
     An import map, rendered as ``<script type="importmap">``.
 
@@ -224,9 +225,10 @@ class ImportMap(_JSONAsset):
     ``imports`` and ``scopes`` are passed through ``static()`` when rendering,
     URLs with a scheme, paths starting with ``/``, ``./`` or ``../`` and paths
     ending with ``/`` are used as they are.
-    """
 
-    element_template = '<script type="importmap"{attributes}>{path}</script>'
+    Import maps aren't media assets: They are passed to
+    ``Media(importmap=...)`` instead of being added to ``js`` lists.
+    """
 
     def __init__(self, imports=None, *, scopes=None, integrity=None, **attributes):
         if (
@@ -246,26 +248,52 @@ class ImportMap(_JSONAsset):
         else:
             data = {}
             if imports:
-                data["imports"] = dict(imports)
+                data["imports"] = imports
             if scopes:
-                data["scopes"] = {
-                    scope: dict(scope_imports)
-                    for scope, scope_imports in scopes.items()
-                }
+                data["scopes"] = scopes
             if integrity:
-                data["integrity"] = dict(integrity)
-        super().__init__(data, **attributes)
+                data["integrity"] = integrity
+        # Copy the data, import maps must not change when the caller's dict does.
+        self._data = copy.deepcopy(data)
+        self.attributes = attributes
 
     @classmethod
     def _from_data(cls, data, **attributes):
         importmap = cls.__new__(cls)
-        _JSONAsset.__init__(importmap, data, **attributes)
+        importmap._data = data
+        importmap.attributes = attributes
         return importmap
 
-    @property
-    def path(self):
+    def __eq__(self, other):
+        return (
+            isinstance(other, ImportMap)
+            and self._data == other._data
+            and self.attributes == other.attributes
+        )
+
+    # Import maps aren't media assets, ``Media.merge`` doesn't need them to be
+    # hashable.
+    __hash__ = None
+
+    def __repr__(self):
+        return f"{type(self).__qualname__}({self._data!r})"
+
+    def render(self, *, attrs=None, nonce=""):
+        if nonce:
+            warnings.warn(
+                "ImportMap.render(nonce=...) is deprecated, use"
+                " render(attrs={'nonce': ...}) instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            attrs = {"nonce": nonce} | (attrs or {})
+        # Like Django's ``MediaAsset.render(attrs=)``.
+        if attrs and (conflicts := attrs.keys() & self.attributes.keys()):
+            raise ValueError(
+                "ImportMap has conflicting attributes: " + ", ".join(sorted(conflicts))
+            )
         # Copy, resolving the paths must not change the import map.
-        data = dict(self._path)
+        data = dict(self._data)
         if "imports" in data:
             data["imports"] = {
                 key: _resolve(path) for key, path in data["imports"].items()
@@ -276,16 +304,24 @@ class ImportMap(_JSONAsset):
                 for scope, scope_imports in data["scopes"].items()
             }
         # See ``_JSONAsset.path`` on the escaping.
-        return mark_safe(
+        serialized = (
             json_script(data)
             .removeprefix('<script type="application/json">')
             .removesuffix("</script>")
         )
+        return format_html(
+            '<script type="importmap"{}>{}</script>',
+            flatatt({**(attrs or {}), **self.attributes}),
+            mark_safe(serialized),
+        )
+
+    def __str__(self):
+        return self.render()
 
     def __or__(self, other):
         if not isinstance(other, ImportMap):
             return NotImplemented
-        a, b = self._path, other._path
+        a, b = self._data, other._data
         combined = {}
         for key in ("imports", "integrity"):
             if key in a or key in b:

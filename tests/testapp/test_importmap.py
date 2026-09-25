@@ -1,10 +1,8 @@
-from unittest import skipIf
-
-import django
 from django.forms import Media as DjangoMedia
 from django.test import TestCase
 
 from js_asset.js import ImportMap, MediaAsset, static_lazy
+from js_asset.media import Media
 
 
 class MediaTest(TestCase):
@@ -86,22 +84,18 @@ class MediaTest(TestCase):
             '{"imports": {"a": "/static/a.js"}}</script>',
         )
 
-    def test_is_a_media_asset(self):
+    def test_attributes_and_equality(self):
         importmap = ImportMap({"a": "/static/a.js"}, **{"data-x": "y"})
-        self.assertIsInstance(importmap, MediaAsset)
+        self.assertNotIsInstance(importmap, MediaAsset)
         self.assertEqual(
             str(importmap),
             '<script type="importmap" data-x="y">'
             '{"imports": {"a": "/static/a.js"}}</script>',
         )
-        # Equality and hashing ignore the order of keys, but not attributes.
+        # Equality ignores the order of keys, but not attributes.
         self.assertEqual(
             ImportMap({"a": "/a.js", "b": "/b.js"}),
             ImportMap({"b": "/b.js", "a": "/a.js"}),
-        )
-        self.assertEqual(
-            hash(ImportMap({"a": "/a.js", "b": "/b.js"})),
-            hash(ImportMap({"b": "/b.js", "a": "/a.js"})),
         )
         self.assertNotEqual(importmap, ImportMap({"a": "/static/a.js"}))
         # Attributes survive merging.
@@ -114,47 +108,44 @@ class MediaTest(TestCase):
             '{"imports": {"\\u003C/script\\u003E": "/\\u003C/script\\u003E"}}</script>',
         )
 
-    @skipIf(django.VERSION < (6, 1), "Django < 6.1 has no Media.render(attrs=)")
-    def test_plain_django_media_applies_the_nonce(self):
-        media = DjangoMedia(js=[ImportMap({"a": "/static/a.js"})])
-        self.assertEqual(
-            media.render(attrs={"nonce": "N"}),
-            '<script type="importmap" nonce="N">'
-            '{"imports": {"a": "/static/a.js"}}</script>',
-        )
+    def test_conflicting_attributes(self):
+        importmap = ImportMap({"a": "/static/a.js"}, nonce="own")
+        with self.assertRaisesMessage(ValueError, "conflicting attributes: nonce"):
+            importmap.render(attrs={"nonce": "N"})
+
+    def test_not_supported_in_js_lists(self):
+        media = Media(js=[ImportMap({"a": "/static/a.js"})])
+        with self.assertRaisesMessage(TypeError, "Media(importmap=...)"):
+            str(media)
+        # Also when adopted from a plain forms.Media, e.g. of a widget.
+        media = Media() + DjangoMedia(js=[ImportMap({"a": "/static/a.js"})])
+        with self.assertRaisesMessage(TypeError, "Media(importmap=...)"):
+            str(media)
 
     def test_copies_the_data(self):
         data = {"a": "/static/a.js"}
         importmap = ImportMap(data)
-        before = hash(importmap)
         data["b"] = "/static/b.js"
-        self.assertEqual(hash(importmap), before)
-        self.assertEqual(importmap._path, {"imports": {"a": "/static/a.js"}})
+        self.assertEqual(importmap._data, {"imports": {"a": "/static/a.js"}})
 
     def test_merging_leaves_operands_alone(self):
         a = ImportMap({"lib": "/a.js"}, scopes={"/x/": {"y": "/a"}})
         b = ImportMap({"lib": "/b.js"}, scopes={"/x/": {"y": "/b"}})
         combined = a | b
         self.assertEqual(
-            combined._path,
+            combined._data,
             {"imports": {"lib": "/b.js"}, "scopes": {"/x/": {"y": "/b"}}},
         )
-        self.assertEqual(a._path["imports"], {"lib": "/a.js"})
-        self.assertEqual(b._path["imports"], {"lib": "/b.js"})
+        self.assertEqual(a._data["imports"], {"lib": "/a.js"})
+        self.assertEqual(b._data["imports"], {"lib": "/b.js"})
 
         importmap = a
         importmap |= b
         self.assertEqual(importmap, combined)
-        self.assertEqual(a._path["imports"], {"lib": "/a.js"})
+        self.assertEqual(a._data["imports"], {"lib": "/a.js"})
 
     def test_is_immutable(self):
         self.assertFalse(hasattr(ImportMap({}), "update"))
-
-    def test_hash_consistent_with_equality(self):
-        a = ImportMap({}, async_=True)
-        b = ImportMap({}, async_=1)
-        self.assertEqual(a, b)
-        self.assertEqual(hash(a), hash(b))
 
 
 class DeprecatedFullImportMapTest(TestCase):

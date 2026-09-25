@@ -7,10 +7,16 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
-- ``js_asset.Media`` takes an ``importmap=`` argument. Import maps passed this
-  way are merged when adding media objects (the media added later wins) and
-  rendered by ``{{ media }}`` and ``{{ media.importmap }}``. Import maps in
-  ``js`` lists keep working.
+- **Backwards-incompatible:** ``js_asset.Media`` takes the import map as an
+  ``importmap=`` argument instead of in ``js`` lists. Import maps are merged
+  when adding media objects (the media added later wins) and rendered by
+  ``{{ media }}`` and ``{{ media.importmap }}``, but not by
+  ``{{ media.js }}``. Rendering import maps in ``js`` lists raises a
+  ``TypeError``. Widgets which used ``class Media`` for their import maps have
+  to define ``media = Media(importmap=..., js=[...])`` instead, since Django's
+  ``forms.Media`` doesn't know about import maps. The admin's
+  ``change_list.html`` only renders ``{{ media.js }}``; see the README for a
+  template adding the import map.
 - ``ImportMap`` takes the ``imports`` of the import map now, and ``scopes=``
   and ``integrity=`` keyword arguments: ``ImportMap({"lib": "lib.js"})``.
   Relative paths are passed through ``static()`` when rendering, like ``JS``
@@ -20,18 +26,17 @@ Next version
   but not ``./a.js``) are passed through ``static()`` when rendering, also when
   passing a full import map. They were used as they are before.
 - ``js_asset.Media`` only runs ``Media.merge`` once when rendering scripts.
-- Equal ``ImportMap`` and ``JSON`` objects with attributes such as ``True``
-  and ``1`` have the same hash now.
+- Equal ``JSON`` objects with attributes such as ``True`` and ``1`` have the
+  same hash now.
 - **Backwards-incompatible:** Rendering an asset which has its own ``nonce``
   attribute through ``js_asset.Media`` with a nonce raises a ``ValueError``
   instead of silently replacing the asset's nonce, like Django's
   ``MediaAsset.render(attrs=...)`` does since Django 6.1.
 - **Backwards-incompatible:** Removed the deprecated ``ImportMap.update()``.
   Import maps are immutable, use ``map1 | map2`` or ``map1 |= map2`` instead.
-- ``ImportMap`` is a ``MediaAsset`` now, like Django's ``Script``. On Django
-  6.1 and newer, a plain ``forms.Media`` rendered with ``attrs=`` (e.g. through
-  ``{% csp_nonce_attr media %}``) therefore applies the nonce to import maps
-  too. ``ImportMap(data, **attributes)`` accepts attributes for the tag.
+- ``ImportMap(imports, **attributes)`` accepts attributes for the tag, and
+  ``ImportMap.render(attrs=...)`` handles them like Django's
+  ``MediaAsset.render()``. Import maps aren't hashable anymore.
 - Deprecated ``ImportMap.render(nonce=...)``, use
   ``render(attrs={"nonce": ...})`` instead.
 - **Backwards-incompatible:** Removed ``ImportMap.__bool__``. An empty
