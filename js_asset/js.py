@@ -119,15 +119,11 @@ class _JSONAsset(MediaAsset):
 
     @property
     def path(self):
-        return self._serialize(self._path)
-
-    @staticmethod
-    def _serialize(data):
         # ``json_script`` escapes ``<``, ``>`` and ``&``, so the JSON cannot
         # close the element. ``DjangoJSONEncoder`` resolves lazy values, e.g.
         # ``static_lazy`` paths, at rendering time.
         return mark_safe(
-            json_script(data)
+            json_script(self._path)
             .removeprefix('<script type="application/json">')
             .removesuffix("</script>")
         )
@@ -279,7 +275,12 @@ class ImportMap(_JSONAsset):
                 scope: {key: _resolve(path) for key, path in scope_imports.items()}
                 for scope, scope_imports in data["scopes"].items()
             }
-        return self._serialize(data)
+        # See ``_JSONAsset.path`` on the escaping.
+        return mark_safe(
+            json_script(data)
+            .removeprefix('<script type="application/json">')
+            .removesuffix("</script>")
+        )
 
     def __or__(self, other):
         if not isinstance(other, ImportMap):
