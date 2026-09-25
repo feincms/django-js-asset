@@ -165,8 +165,9 @@ many media objects were added together to get there:
 ``integrity=`` keyword arguments for the other parts. Paths are resolved when
 rendering, like ``JS`` paths: relative paths are passed through ``static()``,
 so defining import maps at module level works with
-``ManifestStaticFilesStorage``. URLs, paths starting with ``/``, ``./`` or
-``../`` and paths ending with ``/`` (prefix mappings) are used as they are.
+``ManifestStaticFilesStorage``. URLs with a scheme (``https:``, ``data:``
+etc.), paths starting with ``/``, ``./`` or ``../`` and paths ending with ``/``
+(prefix mappings) are used as they are.
 
 .. note::
 

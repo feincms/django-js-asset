@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import warnings
 
 from django.core.serializers.json import DjangoJSONEncoder
@@ -188,9 +189,13 @@ class JSON(_JSONAsset):
 
 _IMPORTMAP_KEYS = {"imports", "scopes", "integrity"}
 
-# Paths which are used as they are instead of being passed through ``static()``.
-# Paths ending with ``/`` are prefix mappings; storages cannot resolve those.
-_UNRESOLVED_PREFIXES = ("http://", "https://", "/", "./", "../", "data:", "blob:")
+# Paths which are used as they are instead of being passed through ``static()``:
+# URLs with a scheme (the same check as Django's
+# ``HashedFilesMixin.url_converter``), paths starting with ``/`` (including
+# protocol-relative URLs), ``./`` or ``../``, and paths ending with ``/``.
+# The latter are prefix mappings; storages cannot resolve those.
+_URL_WITH_SCHEME = re.compile(r"^[a-z]+:")
+_UNRESOLVED_PREFIXES = ("/", "./", "../")
 
 
 class _Verbatim(str):
@@ -206,7 +211,11 @@ def _resolve(path):
     if isinstance(path, _Verbatim):
         return str(path)
     path = str(path)  # Resolves lazy strings such as ``static_lazy`` paths.
-    if path.startswith(_UNRESOLVED_PREFIXES) or path.endswith("/"):
+    if (
+        _URL_WITH_SCHEME.match(path)
+        or path.startswith(_UNRESOLVED_PREFIXES)
+        or path.endswith("/")
+    ):
         return path
     return static(path)
 
@@ -235,8 +244,8 @@ class ImportMap(_JSONAsset):
     to additional imports only used by modules loaded from those prefixes, and
     ``integrity`` maps URLs to integrity metadata. Relative paths in
     ``imports`` and ``scopes`` are passed through ``static()`` when rendering,
-    URLs, paths starting with ``/``, ``./`` or ``../`` and paths ending with
-    ``/`` are used as they are.
+    URLs with a scheme, paths starting with ``/``, ``./`` or ``../`` and paths
+    ending with ``/`` are used as they are.
     """
 
     element_template = '<script type="importmap"{attributes}>{path}</script>'

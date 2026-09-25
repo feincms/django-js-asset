@@ -42,6 +42,8 @@ class MediaTest(TestCase):
                 "parent": "../a.js",
                 "prefix": "app/",
                 "url": "https://example.org/a.js",
+                "data": "data:text/javascript,export default 1",
+                "protocol-relative": "//example.org/a.js",
             },
             scopes={"/x/": {"scoped": "app/b.js"}},
             integrity={"https://example.org/a.js": "sha384-a"},
@@ -50,7 +52,9 @@ class MediaTest(TestCase):
             str(importmap),
             '<script type="importmap">{"imports": {"relative": "/static/app/a.js",'
             ' "absolute": "/a.js", "document": "./a.js", "parent": "../a.js",'
-            ' "prefix": "app/", "url": "https://example.org/a.js"},'
+            ' "prefix": "app/", "url": "https://example.org/a.js",'
+            ' "data": "data:text/javascript,export default 1",'
+            ' "protocol-relative": "//example.org/a.js"},'
             ' "scopes": {"/x/": {"scoped": "/static/app/b.js"}},'
             ' "integrity": {"https://example.org/a.js": "sha384-a"}}</script>',
         )
