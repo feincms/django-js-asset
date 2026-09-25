@@ -268,6 +268,7 @@ class ImportMap(_JSONAsset):
 
     @property
     def path(self):
+        # Copy, resolving the paths must not change the import map.
         data = dict(self._path)
         if "imports" in data:
             data["imports"] = {
