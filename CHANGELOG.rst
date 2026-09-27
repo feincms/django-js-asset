@@ -7,6 +7,12 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+The changes in this release have been motivated by the `Django enhancement
+proposal <https://github.com/django/deps/pull/101>`__ and `new feature request
+<https://github.com/django/new-features/issues/214>`__ I have been working on
+at `Django on the Med 2026 <https://djangomed.eu/>`__. django-js-asset is both
+directly usable and also serves as a reference implementation for DEP022.
+
 - **Backwards-incompatible:** ``js_asset.Media`` takes the import map as an
   ``importmap=`` argument instead of in ``js`` lists. Import maps are merged
   when adding media objects (the media added later wins) and rendered by
