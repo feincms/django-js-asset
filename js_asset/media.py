@@ -211,14 +211,18 @@ class Media(forms.Media):
             return []
         return [self._importmap.render(attrs={"nonce": nonce} if nonce else None)]
 
-    def _render_js(self, nonce):
-        # Check before ``_js`` runs ``Media.merge``, which would fail with a
-        # less helpful error since import maps aren't hashable.
+    @property
+    def _js(self):
+        # Check before ``Media.merge`` runs, which would fail with a less
+        # helpful error since import maps aren't hashable.
         if any(isinstance(item, ImportMap) for js in self._js_lists for item in js):
             raise TypeError(
                 "Import maps in js lists aren't supported anymore, pass them"
                 " as Media(importmap=...) instead."
             )
+        return super()._js
+
+    def _render_js(self, nonce):
         rendered = []
         for item in self._js:
             # ``hasattr(item, "__html__")`` -- not ``isinstance(item, str)``:

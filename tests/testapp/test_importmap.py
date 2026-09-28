@@ -121,6 +121,9 @@ class MediaTest(TestCase):
         media = Media() + DjangoMedia(js=[ImportMap({"a": "/static/a.js"})])
         with self.assertRaisesMessage(TypeError, "Media(importmap=...)"):
             str(media)
+        # And when accessing ``{{ media.js }}``.
+        with self.assertRaisesMessage(TypeError, "Media(importmap=...)"):
+            media["js"]
 
     def test_copies_the_data(self):
         data = {"a": "/static/a.js"}
