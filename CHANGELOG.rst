@@ -7,6 +7,9 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+5.0a1 (2026-09-28)
+~~~~~~~~~~~~~~~~~~
+
 This release is motivated by the `Django enhancement proposal
 <https://github.com/django/deps/pull/101>`__ and `new feature request
 <https://github.com/django/new-features/issues/214>`__ I have been working on
