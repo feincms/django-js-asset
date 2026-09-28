@@ -7,74 +7,47 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
-The changes in this release have been motivated by the `Django enhancement
-proposal <https://github.com/django/deps/pull/101>`__ and `new feature request
+This release is motivated by the `Django enhancement proposal
+<https://github.com/django/deps/pull/101>`__ and `new feature request
 <https://github.com/django/new-features/issues/214>`__ I have been working on
 at `Django on the Med 2026 <https://djangomed.eu/>`__. django-js-asset is a
-proving ground for the ideas of DEP022, and makes the utilities available
-right now. It isn't a reference implementation: It keeps its own
-compatibility guarantees, so it cannot follow the DEP exactly.
+proving ground for the ideas of DEP022 and makes them available now. It keeps
+its own compatibility guarantees, so it doesn't follow the DEP exactly.
 
-- **Backwards-incompatible:** ``js_asset.Media`` takes the import map as an
-  ``importmap=`` argument instead of in ``js`` lists. Import maps are merged
-  when adding media objects (the media added later wins) and rendered by
-  ``{{ media }}`` and ``{{ media.importmap }}``, but not by
-  ``{{ media.js }}``. Rendering import maps in ``js`` lists raises a
-  ``TypeError``. Widgets which used ``class Media`` for their import maps have
-  to define ``media = Media(importmap=..., js=[...])`` instead, since Django's
-  ``forms.Media`` doesn't know about import maps. The admin's
-  ``change_list.html`` only renders ``{{ media.js }}``; see the README for a
-  template adding the import map.
-- ``ImportMap`` takes the ``imports`` of the import map now, and ``scopes=``
-  and ``integrity=`` keyword arguments: ``ImportMap({"lib": "lib.js"})``.
-  Relative paths are passed through ``static()`` when rendering, like ``JS``
-  paths, so ``static_lazy()`` isn't needed for import maps anymore. Passing a
-  full import map (``ImportMap({"imports": {...}})``) is deprecated.
-- **Backwards-incompatible:** Relative paths in import maps (e.g. ``app/a.js``,
-  but not ``./a.js``) are passed through ``static()`` when rendering, also when
-  passing a full import map. They were used as they are before.
-- ``js_asset.Media`` only runs ``Media.merge`` once when rendering scripts.
-- Equal ``JSON`` objects with attributes or data such as ``True`` and ``1``
-  have the same hash now, and ``JSON`` objects with data which cannot be
-  sorted (e.g. keys of mixed types) are hashable.
-- Fixed adding media objects dropping a lazy nonce (e.g. Django's
-  ``LazyNonce``) which hadn't been read yet.
-- ``{{ media.css }}`` and ``{{ media.js }}`` keep html-safe strings verbatim
-  on Django versions whose ``forms.Media`` mangles them (6.1.0, main).
-- ``{{ media.js }}`` raises the helpful ``TypeError`` for import maps in
-  ``js`` lists too.
-- Adding and subscripting ``js_asset.Media`` subclasses keeps the subclass.
-- ``Media(nonce=None)`` renders no nonce instead of ``nonce="None"``.
-- **Backwards-incompatible:** Rendering an asset which has its own ``nonce``
-  attribute through ``js_asset.Media`` with a nonce raises a ``ValueError``
-  instead of silently replacing the asset's nonce, like Django's
-  ``MediaAsset.render(attrs=...)`` does since Django 6.1.
-- **Backwards-incompatible:** Removed the deprecated ``ImportMap.update()``.
-  Import maps are immutable, use ``map1 | map2`` or ``map1 |= map2`` instead.
-- ``ImportMap(imports, **attributes)`` accepts attributes for the tag, and
-  ``ImportMap.render(attrs=...)`` handles them like Django's
-  ``MediaAsset.render()``. Import maps aren't hashable anymore.
-- Deprecated ``ImportMap.render(nonce=...)``, use
-  ``render(attrs={"nonce": ...})`` instead.
-- **Backwards-incompatible:** Removed ``ImportMap.__bool__``. An empty
-  ``ImportMap({})`` renders an empty import map instead of nothing.
-- ``JSON`` is a ``MediaAsset`` now as well, and copies the data it is given.
-  ``JSON.data`` returns a copy as well, so the data cannot change, and its
-  hash is computed once and cached.
-- **Backwards-incompatible:** ``Media.from_media(media)`` keeps the nonce of
-  ``media`` instead of dropping it. Pass ``nonce=""`` to drop it.
-- **Backwards-incompatible:** ``js_asset.Media.render(attrs=...)`` (and
-  ``render_importmap()``, ``render_css()`` and ``render_js()``) add all
-  attributes to every tag like Django 6.1 does, not only the nonce, and raise
-  a ``ValueError`` for attributes an asset defines itself.
-- ``CSS()`` accepts an ``attrs=`` keyword argument like ``JS()``.
-- Deprecated ``JSON.render(nonce=...)``, use ``render(attrs={"nonce": ...})``
-  instead.
-- **Backwards-incompatible:** ``JSON.render(attrs=...)`` no longer ignores
-  ``attrs``, and JSON blocks rendered through ``js_asset.Media`` with a nonce
-  get the nonce attribute too. It's harmless, JSON data blocks are not
-  governed by CSP. ``JSON.render(attrs=...)`` raises a ``ValueError`` for
-  attributes the asset defines itself, like Django's ``MediaAsset.render()``.
+The changes to import maps and attributes are backwards-incompatible.
+
+Import maps:
+
+- Pass import maps as ``Media(importmap=ImportMap(...))``; import maps in
+  ``js`` lists raise a ``TypeError``. The import maps of media added together
+  are merged and rendered first by ``{{ media }}``, or separately by
+  ``{{ media.importmap }}``. Widgets define
+  ``media = Media(importmap=..., js=[...])``, since ``class Media`` doesn't
+  support import maps. The admin's change list only renders
+  ``{{ media.js }}``, the README shows how to add the import map.
+- ``ImportMap(imports, *, scopes=None, integrity=None)`` takes the parts of
+  the import map separately. Passing a full import map is deprecated.
+- Relative paths are passed through ``static()`` when rendering, so
+  ``static_lazy()`` isn't needed anymore.
+- Import maps are immutable, combine them with ``|``. ``ImportMap.update()``
+  and ``ImportMap.__bool__`` have been removed.
+
+Attributes and nonces work like Django 6.1's ``MediaAsset.render(attrs=...)``:
+
+- ``render(attrs=...)`` adds the attributes to every tag, including the import
+  map and JSON blocks, and raises a ``ValueError`` for attributes an asset
+  defines itself, e.g. its own ``nonce``.
+- ``render(nonce=...)`` of ``ImportMap`` and ``JSON`` is deprecated, use
+  ``render(attrs={"nonce": ...})``.
+- ``Media.from_media()`` keeps the nonce of the media it wraps.
+
+Also:
+
+- ``CSS()`` accepts ``attrs=`` like ``JS()``, and ``JSON`` is a ``MediaAsset``.
+- Fixed losing lazy nonces and ``js_asset.Media`` subclasses when adding
+  media, ``{{ media.js }}`` mangling html-safe strings on Django 6.1.0 and
+  main, ``Media(nonce=None)`` rendering ``nonce="None"`` and equal ``JSON``
+  objects having different hashes.
 
 4.2 (2026-09-24)
 ~~~~~~~~~~~~~~~~
