@@ -122,7 +122,9 @@ class _JSONAsset(MediaAsset):
 
     def __init__(self, data, **attributes):
         # Copy the data: assets are hashable (``Media.merge`` relies on it), so
-        # they must not change when the caller's dict does.
+        # they must not change when the caller's dict does. Nothing hands out
+        # this copy (``JSON.data`` returns another one), so the hash of the
+        # data can be cached.
         super().__init__(copy.deepcopy(data), **attributes)
 
     @property
@@ -148,12 +150,15 @@ class _JSONAsset(MediaAsset):
     def __hash__(self):
         # ``__eq__`` compares the underlying dict order-insensitively, so the
         # hash must too -- see ``_hashable``. Attributes are combined like
-        # Django's ``MediaAsset.__hash__`` does.
+        # Django's ``MediaAsset.__hash__`` does. They are mutable, so only the
+        # hash of the data is cached.
+        try:
+            data_hash = self._data_hash
+        except AttributeError:
+            data_hash = self._data_hash = hash(_hashable(self._path))
         if self.attributes:
-            return hash(_hashable(self._path)) ^ hash(
-                frozenset(self.attributes.items())
-            )
-        return hash(_hashable(self._path))
+            return data_hash ^ hash(frozenset(self.attributes.items()))
+        return data_hash
 
     def render(self, *, attrs=None, nonce=""):
         if nonce:
@@ -189,7 +194,8 @@ class JSON(_JSONAsset):
 
     @property
     def data(self):
-        return self._path
+        # A copy, see ``_JSONAsset.__init__``.
+        return copy.deepcopy(self._path)
 
     @property
     def id(self):

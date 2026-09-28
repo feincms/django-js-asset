@@ -147,6 +147,11 @@ class AssetTest(TestCase):
         # Copies the data, and equality and hashing ignore the order of keys.
         data["hello"] = "changed"
         self.assertEqual(asset.data, {"hello": "world"})
+        # ``data`` returns a copy as well.
+        hash(asset)
+        asset.data["hello"] = "changed"
+        self.assertEqual(asset, JSON({"hello": "world"}, id="hello"))
+        self.assertEqual(hash(asset), hash(JSON({"hello": "world"}, id="hello")))
         self.assertEqual(JSON({"a": 1, "b": 2}), JSON({"b": 2, "a": 1}))
         self.assertEqual(hash(JSON({"a": 1, "b": 2})), hash(JSON({"b": 2, "a": 1})))
         self.assertNotEqual(JSON({"a": 1}, id="x"), JSON({"a": 1}))

@@ -56,6 +56,8 @@ directly usable and also serves as a reference implementation for DEP022.
 - **Backwards-incompatible:** Removed ``ImportMap.__bool__``. An empty
   ``ImportMap({})`` renders an empty import map instead of nothing.
 - ``JSON`` is a ``MediaAsset`` now as well, and copies the data it is given.
+  ``JSON.data`` returns a copy as well, so the data cannot change, and its
+  hash is computed once and cached.
 - Deprecated ``JSON.render(nonce=...)``, use ``render(attrs={"nonce": ...})``
   instead.
 - **Backwards-incompatible:** ``JSON.render(attrs=...)`` no longer ignores
