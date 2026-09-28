@@ -32,8 +32,9 @@ directly usable and also serves as a reference implementation for DEP022.
   but not ``./a.js``) are passed through ``static()`` when rendering, also when
   passing a full import map. They were used as they are before.
 - ``js_asset.Media`` only runs ``Media.merge`` once when rendering scripts.
-- Equal ``JSON`` objects with attributes such as ``True`` and ``1`` have the
-  same hash now.
+- Equal ``JSON`` objects with attributes or data such as ``True`` and ``1``
+  have the same hash now, and ``JSON`` objects with data which cannot be
+  sorted (e.g. keys of mixed types) are hashable.
 - Fixed adding media objects dropping a lazy nonce (e.g. Django's
   ``LazyNonce``) which hadn't been read yet.
 - ``{{ media.css }}`` and ``{{ media.js }}`` keep html-safe strings verbatim

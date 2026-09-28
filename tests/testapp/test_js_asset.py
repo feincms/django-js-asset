@@ -151,6 +151,12 @@ class AssetTest(TestCase):
         self.assertEqual(hash(JSON({"a": 1, "b": 2})), hash(JSON({"b": 2, "a": 1})))
         self.assertNotEqual(JSON({"a": 1}, id="x"), JSON({"a": 1}))
 
+        # Equal data hashes the same, and all JSON data is hashable.
+        self.assertEqual(JSON({"a": [1]}), JSON({"a": [True]}))
+        self.assertEqual(hash(JSON({"a": [1]})), hash(JSON({"a": [True]})))
+        self.assertEqual(hash(JSON({"a": 1.0})), hash(JSON({"a": 1})))
+        hash(JSON({1: "a", "b": 2}))
+
         # Escaped so that the data cannot close the element.
         self.assertEqual(
             str(JSON({"a": "</script>"})),

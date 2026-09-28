@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import copy
-import json
 import re
 import warnings
 
-from django.core.serializers.json import DjangoJSONEncoder
 from django.forms.utils import flatatt
 from django.templatetags.static import static
 from django.utils.functional import lazy
@@ -31,11 +29,21 @@ __all__ = [
 static_lazy = lazy(static, str)
 
 
-def _canonical_hash(data):
-    # Hash an order-insensitive canonical form so the hash stays consistent
-    # with dict equality (``a == b`` must imply ``hash(a) == hash(b)``).
-    # ``DjangoJSONEncoder`` resolves lazy values, e.g. ``static_lazy`` paths.
-    return hash(json.dumps(data, sort_keys=True, cls=DjangoJSONEncoder))
+def _hashable(data):
+    # A hashable form of the data which is consistent with dict equality
+    # (``a == b`` must imply ``hash(a) == hash(b)``): order-insensitive, and
+    # equal values such as ``1``, ``1.0`` and ``True`` hash the same. Lazy
+    # values, e.g. ``static_lazy`` paths, hash like the value they resolve to.
+    # Collisions are fine, so unhashable values all map to ``None``.
+    if isinstance(data, dict):
+        return frozenset((key, _hashable(value)) for key, value in data.items())
+    if isinstance(data, (list, tuple)):
+        return tuple(_hashable(value) for value in data)
+    try:
+        hash(data)
+    except TypeError:
+        return None
+    return data
 
 
 class InlineStyle(MediaAsset):
@@ -139,14 +147,13 @@ class _JSONAsset(MediaAsset):
 
     def __hash__(self):
         # ``__eq__`` compares the underlying dict order-insensitively, so the
-        # hash must too -- see ``_canonical_hash``. Attributes are combined
-        # like Django's ``MediaAsset.__hash__`` does; serializing them would
-        # give equal attributes such as ``True`` and ``1`` different hashes.
+        # hash must too -- see ``_hashable``. Attributes are combined like
+        # Django's ``MediaAsset.__hash__`` does.
         if self.attributes:
-            return _canonical_hash(self._path) ^ hash(
+            return hash(_hashable(self._path)) ^ hash(
                 frozenset(self.attributes.items())
             )
-        return _canonical_hash(self._path)
+        return hash(_hashable(self._path))
 
     def render(self, *, attrs=None, nonce=""):
         if nonce:
