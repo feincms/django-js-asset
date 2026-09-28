@@ -87,8 +87,10 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   check as `MediaAsset.render()`), copies the data it is given and is
   immutable; combine with `|` / `|=`. `update()` was deprecated in 4.2 and has
   been removed. The import maps DEP draft in
-  `../deps/draft/0022-import-maps.rst` is the design target, and this package
-  its reference implementation.
+  `../deps/draft/0022-import-maps.rst` is the design target. This package is
+  a proving ground for its ideas and makes them usable now — **not** a
+  reference implementation, since it keeps its own compatibility guarantees.
+  Don't call it one in docs or the CHANGELOG.
 - `js_asset/media.py` — `Media(forms.Media)` subclass: holds a single
   `ImportMap` (`importmap=`, merged with `|` when adding media), applies a
   nonce, and normalizes js/css entries by
