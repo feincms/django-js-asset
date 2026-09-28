@@ -498,14 +498,14 @@ Notes
 
 * The merged import map is always rendered first, so a module added in the same
   media can rely on it.
-* Browsers honour only the **first** import map on a page; make sure everything
-  that needs the same map ends up in one merged ``Media`` -- a second
-  ``<script type="importmap">`` reaching the page some other way is silently
-  ignored.
+* Make sure everything that needs the same map ends up in one merged
+  ``Media``. Some browsers merge several ``<script type="importmap">`` tags,
+  others ignore all but the first, and none can apply entries to modules which
+  have already been loaded.
 * Import maps are subject to ``script-src``; make sure ``CSP.NONCE`` is present
   there (and in ``style-src`` if you render stylesheets).
 * A stylesheet placed in ``js=[...]`` is only de-duplicated against that list.
   ``forms.Media`` keeps the ``css={...}`` dictionary in a separate slot, so the
   same file listed in both renders twice -- pick one.
-* Browser support for import maps is still uneven; merging into a single map is
-  currently the only portable way to use them in production.
+* Browser support for *multiple* import maps is still uneven; merging into a
+  single map is currently the only portable way to use several of them.
