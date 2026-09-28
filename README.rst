@@ -42,13 +42,13 @@ injection.):
         }),
     ])
 
-The rendered media tag (via ``{{ media.js }}`` or ``{{ media }}`` will
+The rendered media tag (via ``{{ media.js }}`` or ``{{ media }}``) will
 now contain a script tag as follows, without line breaks:
 
 .. code-block:: html
 
-    <script type="text/javascript" src="/static/asset.js"
-        data-answer="42" id="asset-script"></script>
+    <script src="/static/asset.js" data-answer="42"
+        id="asset-script"></script>
 
 The attributes are automatically escaped. The data attributes may now be
 accessed inside ``asset.js``:
