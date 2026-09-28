@@ -17,6 +17,11 @@ def _merge(first, second):
     return first | second
 
 
+def _has_nonce(nonce):
+    # Not a truth test, see ``Media._resolve_nonce``.
+    return nonce is not None and (type(nonce) is not str or nonce != "")
+
+
 class Media(forms.Media):
     """
     A ``forms.Media`` subclass with two extra abilities:
@@ -100,9 +105,10 @@ class Media(forms.Media):
     # -- Addition ---------------------------------------------------------
 
     def _combine(self, first, second):
-        combined = Media(
-            nonce=getattr(first, "nonce", "") or getattr(second, "nonce", "")
-        )
+        nonce = getattr(first, "nonce", "")
+        if not _has_nonce(nonce):
+            nonce = getattr(second, "nonce", "")
+        combined = Media(nonce=nonce)
         combined._css_lists = first._css_lists[:]
         combined._js_lists = first._js_lists[:]
         for item in second._css_lists:

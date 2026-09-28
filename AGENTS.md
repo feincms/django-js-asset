@@ -115,7 +115,8 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   `isinstance(nonce, str)` reports the *wrapped* value's class while evaluating
   it. `Media._resolve_nonce` uses `type(nonce) is not str` and resolves lazy
   nonces with `str()` — but only when there is something to render, so an empty
-  media does not cause a nonce to be generated.
+  media does not cause a nonce to be generated. `_combine()` picks a side's
+  nonce with `_has_nonce()` for the same reason.
 - Django has built-in CSP support since 6.0 (`csp_nonce` in the template
   context, a `LazyNonce`), and since 6.1 also the `{% csp_nonce_attr media %}`
   tag (`django.utils.csp.nonce_attr`), which renders media via

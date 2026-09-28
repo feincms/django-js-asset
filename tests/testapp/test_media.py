@@ -450,6 +450,20 @@ class LazyNonceTest(TestCase):
             '<script src="/static/app.js" nonce="l@zy"></script>',
         )
 
+    def test_lazy_nonce_kept_when_adding(self):
+        # An unread lazy nonce is falsy, which must not make adding media
+        # prefer the other side's nonce -- or drop it altogether.
+        for media in (
+            Media(nonce=LazyNonce("l@zy"), js=[JS("app.js")]) + DjangoMedia(),
+            DjangoMedia() + Media(nonce=LazyNonce("l@zy"), js=[JS("app.js")]),
+            Media(nonce=LazyNonce("l@zy"), js=[JS("app.js")]) + Media(nonce="other"),
+        ):
+            with self.subTest(media=media):
+                self.assertEqual(
+                    media.render(),
+                    '<script src="/static/app.js" nonce="l@zy"></script>',
+                )
+
     def test_lazy_nonce_applied_to_importmaps(self):
         media = Media(importmap=ImportMap({"a": "/static/a.js"}))
         self.assertEqual(

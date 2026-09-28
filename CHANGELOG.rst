@@ -34,6 +34,8 @@ directly usable and also serves as a reference implementation for DEP022.
 - ``js_asset.Media`` only runs ``Media.merge`` once when rendering scripts.
 - Equal ``JSON`` objects with attributes such as ``True`` and ``1`` have the
   same hash now.
+- Fixed adding media objects dropping a lazy nonce (e.g. Django's
+  ``LazyNonce``) which hadn't been read yet.
 - **Backwards-incompatible:** Rendering an asset which has its own ``nonce``
   attribute through ``js_asset.Media`` with a nonce raises a ``ValueError``
   instead of silently replacing the asset's nonce, like Django's
