@@ -154,25 +154,25 @@ class Media(forms.Media):
     # -- Rendering --------------------------------------------------------
 
     def render(self, *, nonce=None, attrs=None):
-        nonce = self._resolve_nonce(nonce, attrs)
+        attrs = self._resolve_attrs(nonce, attrs)
         return mark_safe(
             "\n".join(
                 filter(
                     None,
                     [
-                        *self._render_importmap(nonce),
-                        *self._render_css(nonce),
-                        *self._render_js(nonce),
+                        *self._render_importmap(attrs),
+                        *self._render_css(attrs),
+                        *self._render_js(attrs),
                     ],
                 )
             )
         )
 
     def render_importmap(self, *, attrs=None):
-        return self._render_importmap(self._resolve_nonce(None, attrs))
+        return self._render_importmap(self._resolve_attrs(None, attrs))
 
     def render_css(self, *, attrs=None):
-        return self._render_css(self._resolve_nonce(None, attrs))
+        return self._render_css(self._resolve_attrs(None, attrs))
 
     def render_js(self, *, attrs=None):
         # ``render_{css,js}`` are part of ``forms.Media``'s public API (and are
@@ -180,16 +180,24 @@ class Media(forms.Media):
         # as well -- otherwise anything rendering the media through them
         # silently loses it. The ``attrs`` keyword only
         # exists on Django >= 6.1; accepting it keeps the signature compatible.
-        return self._render_js(self._resolve_nonce(None, attrs))
+        return self._render_js(self._resolve_attrs(None, attrs))
 
-    def _resolve_nonce(self, nonce, attrs):
-        # ``attrs`` is accepted for compatibility with Django >= 6.1, whose
+    def _resolve_attrs(self, nonce, attrs):
+        # ``attrs`` are added to every tag, like Django >= 6.1 does. Its
         # built-in CSP integration renders media via
         # ``media.render(attrs={"nonce": nonce})`` (see the ``csp_nonce_attr``
-        # template tag). Only the nonce is honoured; the stored nonce is used
-        # as a fallback, since templates call ``render()`` without arguments.
-        if attrs and attrs.get("nonce") is not None:
-            nonce = attrs["nonce"]
+        # template tag). The stored nonce is used as a fallback, since
+        # templates call ``render()`` without arguments.
+        attrs = dict(attrs or {})
+        nonce = self._resolve_nonce(
+            nonce if attrs.get("nonce") is None else attrs["nonce"]
+        )
+        attrs.pop("nonce", None)
+        if nonce:
+            attrs["nonce"] = nonce
+        return attrs
+
+    def _resolve_nonce(self, nonce):
         if nonce is None:
             nonce = self.nonce
         if nonce is None:
@@ -210,10 +218,10 @@ class Media(forms.Media):
             )
         return nonce
 
-    def _render_importmap(self, nonce):
+    def _render_importmap(self, attrs):
         if self._importmap is None:
             return []
-        return [self._importmap.render(attrs={"nonce": nonce} if nonce else None)]
+        return [self._importmap.render(attrs=attrs)]
 
     @property
     def _js(self):
@@ -226,7 +234,7 @@ class Media(forms.Media):
             )
         return super()._js
 
-    def _render_js(self, nonce):
+    def _render_js(self, attrs):
         rendered = []
         for item in self._js:
             # ``hasattr(item, "__html__")`` -- not ``isinstance(item, str)``:
@@ -236,42 +244,44 @@ class Media(forms.Media):
             # ``static()``. Only bare paths are wrapped. (Django hit the same
             # trap in 6.1, fixed for 6.1.1 -- ticket #37262.)
             asset = item if hasattr(item, "__html__") else JS(item)
-            rendered.append(self._render_asset(asset, nonce))
+            rendered.append(self._render_asset(asset, attrs))
         return rendered
 
-    def _render_css(self, nonce):
+    def _render_css(self, attrs):
         rendered = []
         for medium in sorted(self._css):
             for item in self._css[medium]:
                 # See ``_render_js`` on the ``__html__`` check.
                 asset = item if hasattr(item, "__html__") else CSS(item, media=medium)
-                rendered.append(self._render_asset(asset, nonce))
+                rendered.append(self._render_asset(asset, attrs))
         return rendered
 
     @staticmethod
-    def _render_asset(asset, nonce):
+    def _render_asset(asset, attrs):
         if isinstance(asset, MediaAsset):
-            if not nonce:
+            if not attrs:
                 return asset.__html__()
-            if "nonce" in asset.attributes:
+            if conflicts := attrs.keys() & asset.attributes.keys():
                 # Raise like Django's ``MediaAsset.render(attrs=)`` (>= 6.1)
-                # instead of silently replacing the asset's own nonce, so the
-                # behavior doesn't depend on which ``Media`` class renders.
+                # instead of silently replacing the asset's own attributes,
+                # e.g. its nonce, so the behavior doesn't depend on which
+                # ``Media`` class renders.
                 raise ValueError(
-                    f"{asset.__class__.__qualname__} has conflicting attributes: nonce"
+                    f"{asset.__class__.__qualname__} has conflicting attributes: "
+                    + ", ".join(sorted(conflicts))
                 )
-            # Inject the nonce ourselves rather than via MediaAsset.render(
+            # Add the attributes ourselves rather than via MediaAsset.render(
             # attrs=), which only exists on Django >= 6.1. Rebuilding the tag
             # from ``element_template`` keeps output identical on every
             # supported Django (4.2 -> main), and ``flatatt`` sorts the
-            # attributes so the nonce lands in the same place as Django's own.
+            # attributes so they land in the same place as with Django's own.
             return format_html(
                 asset.element_template,
                 path=asset.path,
-                attributes=flatatt(asset.attributes | {"nonce": nonce}),
+                attributes=flatatt(attrs | asset.attributes),
             )
         # Any other asset follows Django's plain ``__html__`` media contract
         # (an object that only knows how to render itself). Mirror
-        # ``forms.Media``'s fallback so such assets keep working -- the nonce
-        # cannot be threaded through, just as with stock Django.
+        # ``forms.Media``'s fallback so such assets keep working -- the
+        # attributes cannot be threaded through, just as with stock Django.
         return asset.__html__()

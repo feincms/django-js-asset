@@ -557,6 +557,26 @@ class RenderPartsTest(TestCase):
             ],
         )
 
+    def test_render_applies_all_attrs(self):
+        # Like Django >= 6.1's ``Media.render(attrs=)``, all attributes are
+        # added to every tag, not just the nonce.
+        media = Media(
+            nonce="stored",
+            importmap=ImportMap({"a": "/static/a.js"}),
+            css={"all": [CSS("app.css")]},
+            js=[JS("app.js")],
+        )
+        self.assertEqual(
+            media.render(attrs={"data-x": "1"}),
+            '<script type="importmap" data-x="1" nonce="stored">'
+            '{"imports": {"a": "/static/a.js"}}</script>\n'
+            '<link href="/static/app.css" data-x="1" media="all" nonce="stored"'
+            ' rel="stylesheet">\n'
+            '<script src="/static/app.js" data-x="1" nonce="stored"></script>',
+        )
+        with self.assertRaisesMessage(ValueError, "has conflicting attributes: media"):
+            media.render(attrs={"media": "print"})
+
     def test_render_parts_accept_attrs(self):
         media = Media(css={"all": [CSS("app.css")]}, js=[JS("app.js")])
         attrs = {"nonce": "from-attrs"}

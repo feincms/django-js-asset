@@ -124,8 +124,9 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
 - Django has built-in CSP support since 6.0 (`csp_nonce` in the template
   context, a `LazyNonce`), and since 6.1 also the `{% csp_nonce_attr media %}`
   tag (`django.utils.csp.nonce_attr`), which renders media via
-  `media.render(attrs={"nonce": nonce})` — `Media.render()`/`render_{css,js}()`
-  accept `attrs=` for it. `with_nonce()`/constructor cover older Django.
+  `media.render(attrs={"nonce": nonce})` — `Media.render()`/`render_*()`
+  accept `attrs=` and, like Django 6.1, add *all* of them to every tag
+  (`_resolve_attrs()` merges in the stored nonce). `with_nonce()`/constructor cover older Django.
 
 ## Docs
 

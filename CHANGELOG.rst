@@ -63,6 +63,10 @@ compatibility guarantees, so it cannot follow the DEP exactly.
   hash is computed once and cached.
 - **Backwards-incompatible:** ``Media.from_media(media)`` keeps the nonce of
   ``media`` instead of dropping it. Pass ``nonce=""`` to drop it.
+- **Backwards-incompatible:** ``js_asset.Media.render(attrs=...)`` (and
+  ``render_importmap()``, ``render_css()`` and ``render_js()``) add all
+  attributes to every tag like Django 6.1 does, not only the nonce, and raise
+  a ``ValueError`` for attributes an asset defines itself.
 - Deprecated ``JSON.render(nonce=...)``, use ``render(attrs={"nonce": ...})``
   instead.
 - **Backwards-incompatible:** ``JSON.render(attrs=...)`` no longer ignores
