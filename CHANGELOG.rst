@@ -40,6 +40,7 @@ directly usable and also serves as a reference implementation for DEP022.
   on Django versions whose ``forms.Media`` mangles them (6.1.0, main).
 - ``{{ media.js }}`` raises the helpful ``TypeError`` for import maps in
   ``js`` lists too.
+- Adding and subscripting ``js_asset.Media`` subclasses keeps the subclass.
 - **Backwards-incompatible:** Rendering an asset which has its own ``nonce``
   attribute through ``js_asset.Media`` with a nonce raises a ``ValueError``
   instead of silently replacing the asset's nonce, like Django's

@@ -108,7 +108,7 @@ class Media(forms.Media):
         nonce = getattr(first, "nonce", "")
         if not _has_nonce(nonce):
             nonce = getattr(second, "nonce", "")
-        combined = Media(nonce=nonce)
+        combined = type(self)(nonce=nonce)
         combined._css_lists = first._css_lists[:]
         combined._js_lists = first._js_lists[:]
         for item in second._css_lists:
@@ -138,7 +138,7 @@ class Media(forms.Media):
     def __getitem__(self, name):
         if name == "importmap":
             # ``{{ media.importmap }}``
-            return Media(nonce=self.nonce, importmap=self._importmap)
+            return type(self)(nonce=self.nonce, importmap=self._importmap)
         if name in ("css", "js"):
             # Django's ``__getitem__`` hardcodes ``forms.Media``, so
             # ``media["js"]`` -- reached from templates as ``{{ media.js }}``,
@@ -146,7 +146,7 @@ class Media(forms.Media):
             # would drop our type, and with it the nonce. Building the subset
             # through this class also keeps html-safe strings verbatim, which
             # ``forms.Media``'s normalization mangles on Django 6.1.0 and main.
-            return Media(nonce=self.nonce, **{name: getattr(self, "_" + name)})
+            return type(self)(nonce=self.nonce, **{name: getattr(self, "_" + name)})
         return super().__getitem__(name)
 
     # -- Rendering --------------------------------------------------------

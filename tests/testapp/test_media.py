@@ -265,6 +265,16 @@ class MediaTest(TestCase):
         self.assertIsInstance(merged, Media)
         self.assertEqual(merged.nonce, "abc")
 
+    def test_subclass_preserved(self):
+        class MyMedia(Media):
+            pass
+
+        media = MyMedia(js=[JS("app.js")])
+        self.assertIs(type(media + DjangoMedia()), MyMedia)
+        self.assertIs(type(DjangoMedia() + media), MyMedia)
+        for name in ("css", "js", "importmap"):
+            self.assertIs(type(media[name]), MyMedia)
+
     def test_bare_string_assets_get_nonce(self):
         # Bare paths stay strings on Django < 6.2 and are wrapped into
         # MediaAsset objects on >= 6.2; both paths must receive the nonce.
