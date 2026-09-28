@@ -106,10 +106,10 @@ class CSS(metaclass=_ProducesAsset):
     _produces = (Stylesheet, InlineStyle)
 
     @staticmethod
-    def _produce(src, media="all", *, inline=False):
+    def _produce(src, media="all", *, inline=False, attrs=None):
         if inline:
-            return InlineStyle(src, media=media)
-        return Stylesheet(src, media=media)
+            return InlineStyle(src, media=media, **(attrs or {}))
+        return Stylesheet(src, media=media, **(attrs or {}))
 
 
 class _JSONAsset(MediaAsset):

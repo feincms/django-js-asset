@@ -95,6 +95,10 @@ This produces:
     <style media="all">p{color:red;}</style>
     <script src="/static/widget/script.js" type="module"></script>
 
+``CSS(path, media="all", *, inline=False, attrs=None)`` accepts additional
+attributes too, e.g. ``CSS("widget/style.css", attrs={"crossorigin":
+"anonymous"})``.
+
 Inline CSS is rendered verbatim -- a ``<style>`` element is raw text, so HTML
 escapes would not be decoded inside it and would break the CSS instead. For the
 same reason the CSS must not contain ``</style``, which would end the element

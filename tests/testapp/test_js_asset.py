@@ -96,6 +96,17 @@ class AssetTest(TestCase):
             '<style media="all">p{color:red}</style>',
         )
 
+    def test_css_attrs(self):
+        self.assertEqual(
+            str(CSS("app.css", attrs={"crossorigin": "anonymous"})),
+            '<link href="/static/app.css" crossorigin="anonymous" media="all"'
+            ' rel="stylesheet">',
+        )
+        self.assertEqual(
+            str(CSS("p{color:red}", "print", inline=True, attrs={"id": "s"})),
+            '<style id="s" media="print">p{color:red}</style>',
+        )
+
     def test_inline_css_is_not_escaped(self):
         # A ``<style>`` element is raw text: escaping does not round-trip there,
         # it just corrupts the CSS.

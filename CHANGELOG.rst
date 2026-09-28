@@ -67,6 +67,7 @@ compatibility guarantees, so it cannot follow the DEP exactly.
   ``render_importmap()``, ``render_css()`` and ``render_js()``) add all
   attributes to every tag like Django 6.1 does, not only the nonce, and raise
   a ``ValueError`` for attributes an asset defines itself.
+- ``CSS()`` accepts an ``attrs=`` keyword argument like ``JS()``.
 - Deprecated ``JSON.render(nonce=...)``, use ``render(attrs={"nonce": ...})``
   instead.
 - **Backwards-incompatible:** ``JSON.render(attrs=...)`` no longer ignores
