@@ -36,6 +36,8 @@ directly usable and also serves as a reference implementation for DEP022.
   same hash now.
 - Fixed adding media objects dropping a lazy nonce (e.g. Django's
   ``LazyNonce``) which hadn't been read yet.
+- ``{{ media.css }}`` and ``{{ media.js }}`` keep html-safe strings verbatim
+  on Django versions whose ``forms.Media`` mangles them (6.1.0, main).
 - **Backwards-incompatible:** Rendering an asset which has its own ``nonce``
   attribute through ``js_asset.Media`` with a nonce raises a ``ValueError``
   instead of silently replacing the asset's nonce, like Django's

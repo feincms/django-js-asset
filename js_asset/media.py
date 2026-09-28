@@ -139,11 +139,15 @@ class Media(forms.Media):
         if name == "importmap":
             # ``{{ media.importmap }}``
             return Media(nonce=self.nonce, importmap=self._importmap)
-        # Django's ``__getitem__`` hardcodes ``forms.Media``, so ``media["js"]``
-        # -- reached from templates as ``{{ media.js }}``, and used by the admin
-        # as ``{% csp_nonce_attr media.js %}`` -- would drop our type, and with
-        # it the nonce.
-        return self.from_media(super().__getitem__(name), nonce=self.nonce)
+        if name in ("css", "js"):
+            # Django's ``__getitem__`` hardcodes ``forms.Media``, so
+            # ``media["js"]`` -- reached from templates as ``{{ media.js }}``,
+            # and used by the admin as ``{% csp_nonce_attr media.js %}`` --
+            # would drop our type, and with it the nonce. Building the subset
+            # through this class also keeps html-safe strings verbatim, which
+            # ``forms.Media``'s normalization mangles on Django 6.1.0 and main.
+            return Media(nonce=self.nonce, **{name: getattr(self, "_" + name)})
+        return super().__getitem__(name)
 
     # -- Rendering --------------------------------------------------------
 

@@ -595,6 +595,12 @@ class GetItemTest(TestCase):
             '{"imports": {"a": "/static/a.js"}}</script>',
         )
 
+    def test_html_safe_strings_in_subsets(self):
+        # Django 6.1.0 and main mangle html-safe strings when normalizing, and
+        # ``forms.Media.__getitem__`` normalizes the subset again.
+        media = Media(js=[HTML_SAFE_JS])
+        self.assertEqual(media["js"].render(), HTML_SAFE_JS)
+
     def test_unknown_media_type(self):
         with self.assertRaises(KeyError):
             self.media["json"]
