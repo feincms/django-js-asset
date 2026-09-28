@@ -173,6 +173,24 @@ so defining import maps at module level works with
 etc.), paths starting with ``/``, ``./`` or ``../`` and paths ending with ``/``
 (prefix mappings) are used as they are.
 
+Scope prefixes and the URLs in ``integrity`` are never resolved, so
+``integrity={"app/a.js": ...}`` doesn't apply to ``/static/app/a.js`` --
+``integrity`` needs the final URLs, e.g. of modules loaded from a CDN:
+
+.. code-block:: python
+
+    ImportMap(
+        {"lit": "https://cdn.example.com/lit@3/index.js"},
+        integrity={"https://cdn.example.com/lit@3/index.js": "sha384-..."},
+    )
+
+.. note::
+
+   Integrity metadata for paths resolved through ``static()`` is supposed to
+   be added automatically once static files storages can calculate it, as
+   proposed by `DEP 0021 <https://github.com/django/deps/pull/122>`__. Explicit
+   ``integrity`` entries will then only be needed for other modules.
+
 .. note::
 
    Passing a full import map (``ImportMap({"imports": {...}})``) is deprecated,

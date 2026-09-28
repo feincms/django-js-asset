@@ -243,7 +243,8 @@ class ImportMap:
     ``integrity`` maps URLs to integrity metadata. Relative paths in
     ``imports`` and ``scopes`` are passed through ``static()`` when rendering,
     URLs with a scheme, paths starting with ``/``, ``./`` or ``../`` and paths
-    ending with ``/`` are used as they are.
+    ending with ``/`` are used as they are. Scope prefixes and the URLs in
+    ``integrity`` are never resolved, ``integrity`` needs the final URLs.
 
     Import maps aren't media assets: They are passed to
     ``Media(importmap=...)`` instead of being added to ``js`` lists.
