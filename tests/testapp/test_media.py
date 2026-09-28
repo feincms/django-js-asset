@@ -275,6 +275,10 @@ class MediaTest(TestCase):
         for name in ("css", "js", "importmap"):
             self.assertIs(type(media[name]), MyMedia)
 
+    def test_none_nonce(self):
+        media = Media(nonce=None, js=[JS("app.js")])
+        self.assertEqual(media.render(), '<script src="/static/app.js"></script>')
+
     def test_bare_string_assets_get_nonce(self):
         # Bare paths stay strings on Django < 6.2 and are wrapped into
         # MediaAsset objects on >= 6.2; both paths must receive the nonce.

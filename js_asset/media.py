@@ -190,6 +190,8 @@ class Media(forms.Media):
             nonce = attrs["nonce"]
         if nonce is None:
             nonce = self.nonce
+        if nonce is None:
+            return ""
         if type(nonce) is not str:
             # Django's ``LazyNonce`` (the ``csp_nonce`` context value on >= 6.0)
             # is deliberately *falsy* until it is first read, so truth-testing
