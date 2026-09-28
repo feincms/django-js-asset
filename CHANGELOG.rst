@@ -61,6 +61,8 @@ compatibility guarantees, so it cannot follow the DEP exactly.
 - ``JSON`` is a ``MediaAsset`` now as well, and copies the data it is given.
   ``JSON.data`` returns a copy as well, so the data cannot change, and its
   hash is computed once and cached.
+- **Backwards-incompatible:** ``Media.from_media(media)`` keeps the nonce of
+  ``media`` instead of dropping it. Pass ``nonce=""`` to drop it.
 - Deprecated ``JSON.render(nonce=...)``, use ``render(attrs={"nonce": ...})``
   instead.
 - **Backwards-incompatible:** ``JSON.render(attrs=...)`` no longer ignores

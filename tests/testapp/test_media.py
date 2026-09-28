@@ -369,6 +369,13 @@ class MediaTest(TestCase):
             html,
         )
 
+    def test_from_media_keeps_the_nonce(self):
+        media = Media(nonce="n", js=[JS("app.js")])
+        self.assertEqual(Media.from_media(media).nonce, "n")
+        self.assertEqual(Media.from_media(media, nonce="other").nonce, "other")
+        self.assertEqual(Media.from_media(media, nonce="").nonce, "")
+        self.assertEqual(Media.from_media(DjangoMedia()).nonce, "")
+
     def test_with_nonce_returns_a_copy(self):
         media = Media(js=[JS("app.js")])
         request_media = media.with_nonce("xyz")

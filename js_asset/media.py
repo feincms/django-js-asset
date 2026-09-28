@@ -83,16 +83,18 @@ class Media(forms.Media):
         }
 
     @classmethod
-    def from_media(cls, media, *, nonce=""):
+    def from_media(cls, media, *, nonce=None):
         """
         Wrap an existing ``forms.Media`` instance (e.g. ``form.media``), keeping
-        its assets and optionally attaching a nonce.
+        its assets, import map and nonce. Pass ``nonce`` to replace the nonce.
 
         Useful when you cannot control how the media was created -- note that
         ``Media(form.media)`` does *not* work, because ``forms.Media`` copies
         assets from a media *definition* (with ``css``/``js`` attributes), not
         from a media *instance*.
         """
+        if nonce is None:
+            nonce = getattr(media, "nonce", "")
         clone = cls(nonce=nonce, importmap=getattr(media, "_importmap", None))
         clone._css_lists = media._css_lists[:]
         clone._js_lists = media._js_lists[:]
