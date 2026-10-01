@@ -127,6 +127,14 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   `media.render(attrs={"nonce": nonce})` — `Media.render()`/`render_*()`
   accept `attrs=` and, like Django 6.1, add *all* of them to every tag
   (`_resolve_attrs()` merges in the stored nonce). `with_nonce()`/constructor cover older Django.
+- **Subresource integrity (DEP 0021) is deliberately deferred** until storages
+  provide `Storage.integrity()`. Don't build a hashing fallback here: the
+  digest must be of the *served* bytes, and `ManifestStaticFilesStorage`
+  rewrites CSS `url()`s during `collectstatic`, so hashing the source is wrong
+  and only the storage knows the real bytes. When storages support it, call
+  it at render time in `_render_asset` (never store it in `attributes` — it
+  would change `__eq__`/`__hash__` and break dedup) and add entries for
+  `static()`-resolved paths to the import map's `integrity`.
 
 ## Docs
 
