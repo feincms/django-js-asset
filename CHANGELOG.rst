@@ -7,6 +7,9 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+5.0a2 (2026-10-14)
+~~~~~~~~~~~~~~~~~~
+
 - Backwards-incompatible: Import map paths starting with ``./`` or ``../``
   and paths ending with ``/`` are passed through ``static()`` like all other
   relative paths, as proposed by the DEP. Only URLs with a scheme and paths
