@@ -206,20 +206,16 @@ _IMPORTMAP_KEYS = {"imports", "scopes", "integrity"}
 
 # Paths which are used as they are instead of being passed through ``static()``:
 # URLs with a scheme (the same check as Django's
-# ``HashedFilesMixin.url_converter``), paths starting with ``/`` (including
-# protocol-relative URLs), ``./`` or ``../``, and paths ending with ``/``.
-# The latter are prefix mappings; storages cannot resolve those.
+# ``HashedFilesMixin.url_converter``) and paths starting with ``/`` (including
+# protocol-relative URLs). Everything else is relative to the static files;
+# that includes prefix mappings ending with ``/``, which ``static()`` resolves
+# without hashing.
 _URL_WITH_SCHEME = re.compile(r"^[a-z]+:")
-_UNRESOLVED_PREFIXES = ("/", "./", "../")
 
 
 def _resolve(path):
     path = str(path)  # Resolves lazy strings such as ``static_lazy`` paths.
-    if (
-        _URL_WITH_SCHEME.match(path)
-        or path.startswith(_UNRESOLVED_PREFIXES)
-        or path.endswith("/")
-    ):
+    if _URL_WITH_SCHEME.match(path) or path.startswith("/"):
         return path
     return static(path)
 
@@ -242,9 +238,9 @@ class ImportMap:
     to additional imports only used by modules loaded from those prefixes, and
     ``integrity`` maps URLs to integrity metadata. Relative paths in
     ``imports`` and ``scopes`` are passed through ``static()`` when rendering,
-    URLs with a scheme, paths starting with ``/``, ``./`` or ``../`` and paths
-    ending with ``/`` are used as they are. Scope prefixes and the URLs in
-    ``integrity`` are never resolved, ``integrity`` needs the final URLs.
+    URLs with a scheme and paths starting with ``/`` are used as they are.
+    Scope prefixes and the URLs in ``integrity`` are never resolved,
+    ``integrity`` needs the final URLs.
 
     Import maps aren't media assets: They are passed to
     ``Media(importmap=...)`` instead of being added to ``js`` lists.

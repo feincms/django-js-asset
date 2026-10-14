@@ -169,9 +169,10 @@ other script:
 ``integrity=`` keyword arguments for the other parts. Paths are resolved when
 rendering, like ``JS`` paths: relative paths are passed through ``static()``,
 so defining import maps at module level works with
-``ManifestStaticFilesStorage``. URLs with a scheme (``https:``, ``data:``
-etc.), paths starting with ``/``, ``./`` or ``../`` and paths ending with ``/``
-(prefix mappings) are used as they are.
+``ManifestStaticFilesStorage``. URLs with a scheme (e.g. ``https:``) and paths
+starting with ``/`` are used as they are. Prefix mappings such as
+``{"my-library/": "my-library/"}`` are resolved too, but ``static()`` doesn't
+hash directories, so modules loaded through them use their unhashed names.
 
 Scope prefixes and the URLs in ``integrity`` are never resolved, so
 ``integrity={"app/a.js": ...}`` doesn't apply to ``/static/app/a.js`` --

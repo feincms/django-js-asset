@@ -21,14 +21,14 @@ class MediaTest(TestCase):
         )
 
         c = ImportMap(
-            {"/app/": "./original-app/", "/app/helper": "./helper/index.mjs"},
-            scopes={"/js": {"/app/": "./js-app/"}},
+            {"/app/": "/original-app/", "/app/helper": "/helper/index.mjs"},
+            scopes={"/js": {"/app/": "/js-app/"}},
         )
 
         self.assertEqual(
             str(a | b | c),
             """\
-<script type="importmap">{"imports": {"a": "/static/a.js", "b": "/static/b.js", "/app/": "./original-app/", "/app/helper": "./helper/index.mjs"}, "integrity": {"/static/a.js": "sha384-blub-a", "/static/b.js": "sha384-blub-b"}, "scopes": {"/js": {"/app/": "./js-app/"}}}</script>""",
+<script type="importmap">{"imports": {"a": "/static/a.js", "b": "/static/b.js", "/app/": "/original-app/", "/app/helper": "/helper/index.mjs"}, "integrity": {"/static/a.js": "sha384-blub-a", "/static/b.js": "sha384-blub-b"}, "scopes": {"/js": {"/app/": "/js-app/"}}}</script>""",
         )
 
     def test_resolves_paths(self):
@@ -36,11 +36,8 @@ class MediaTest(TestCase):
             {
                 "relative": "app/a.js",
                 "absolute": "/a.js",
-                "document": "./a.js",
-                "parent": "../a.js",
                 "prefix": "app/",
                 "url": "https://example.org/a.js",
-                "data": "data:text/javascript,export default 1",
                 "protocol-relative": "//example.org/a.js",
             },
             scopes={"/x/": {"scoped": "app/b.js"}},
@@ -49,9 +46,8 @@ class MediaTest(TestCase):
         self.assertEqual(
             str(importmap),
             '<script type="importmap">{"imports": {"relative": "/static/app/a.js",'
-            ' "absolute": "/a.js", "document": "./a.js", "parent": "../a.js",'
-            ' "prefix": "app/", "url": "https://example.org/a.js",'
-            ' "data": "data:text/javascript,export default 1",'
+            ' "absolute": "/a.js", "prefix": "/static/app/",'
+            ' "url": "https://example.org/a.js",'
             ' "protocol-relative": "//example.org/a.js"},'
             ' "scopes": {"/x/": {"scoped": "/static/app/b.js"}},'
             ' "integrity": {"https://example.org/a.js": "sha384-a"}}</script>',
