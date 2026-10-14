@@ -269,6 +269,8 @@ class ImportMap:
                 data["scopes"] = scopes
             if integrity:
                 data["integrity"] = integrity
+        if "type" in attributes:
+            raise ValueError("ImportMap doesn't accept a type attribute.")
         # Copy the data, import maps must not change when the caller's dict does.
         self._data = copy.deepcopy(data)
         self.attributes = attributes
@@ -303,8 +305,9 @@ class ImportMap:
                 stacklevel=2,
             )
             attrs = {"nonce": nonce} | (attrs or {})
-        # Like Django's ``MediaAsset.render(attrs=)``.
-        if attrs and (conflicts := attrs.keys() & self.attributes.keys()):
+        # Like Django's ``MediaAsset.render(attrs=)``. ``type`` is always
+        # ``importmap``, a second one would be ignored by browsers.
+        if attrs and (conflicts := attrs.keys() & {"type", *self.attributes}):
             raise ValueError(
                 "ImportMap has conflicting attributes: " + ", ".join(sorted(conflicts))
             )

@@ -12,6 +12,9 @@ Next version
   relative paths, as proposed by the DEP. Only URLs with a scheme and paths
   starting with ``/`` are used as they are. Use absolute paths for anything
   which isn't a static file.
+- ``ImportMap`` raises a ``ValueError`` when passed a ``type`` attribute, in
+  the constructor or in ``render(attrs=...)``. It would have rendered a second
+  ``type`` attribute.
 
 5.0a1 (2026-09-28)
 ~~~~~~~~~~~~~~~~~~

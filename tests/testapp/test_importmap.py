@@ -109,6 +109,12 @@ class MediaTest(TestCase):
         with self.assertRaisesMessage(ValueError, "conflicting attributes: nonce"):
             importmap.render(attrs={"nonce": "N"})
 
+    def test_type_attribute(self):
+        with self.assertRaisesMessage(ValueError, "doesn't accept a type"):
+            ImportMap({"a": "/static/a.js"}, type="module")
+        with self.assertRaisesMessage(ValueError, "conflicting attributes: type"):
+            ImportMap({"a": "/static/a.js"}).render(attrs={"type": "module"})
+
     def test_not_supported_in_js_lists(self):
         media = Media(js=[ImportMap({"a": "/static/a.js"})])
         with self.assertRaisesMessage(TypeError, "Media(importmap=...)"):
