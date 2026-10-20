@@ -39,7 +39,7 @@ class InlineStyle(MediaAsset):
 
     element_template = "<style{attributes}>{path}</style>"
 
-    def __init__(self, css, *, media="all", **attributes):
+    def __init__(self, css, **attributes):
         # ``<style>`` is a raw text element, so nothing inside it can be
         # escaped -- which also means the CSS is only safe as long as it cannot
         # close the element. That takes exactly one sequence (HTML spec:
@@ -47,7 +47,7 @@ class InlineStyle(MediaAsset):
         # broken markup.
         if "</style" in str(css).lower():
             raise ValueError("Inline CSS must not contain '</style'.")
-        super().__init__(css, media=media, **attributes)
+        super().__init__(css, **attributes)
 
     @property
     def path(self):
@@ -131,6 +131,7 @@ class CSS(metaclass=_ProducesAsset):
         attributes = _legacy_attrs("CSS", args, attributes)
         if inline:
             _deprecated("CSS(..., inline=True) is deprecated, use InlineStyle(...).")
+            attributes.setdefault("media", "all")
             return InlineStyle(href, **attributes)
         if "media" not in attributes:
             _deprecated(

@@ -12,6 +12,8 @@ Next version
   attribute dicts (``JS("a.js", {...})``, ``attrs=...``), a positional
   ``media``, ``CSS(..., inline=True)`` (use ``InlineStyle``) and the implicit
   ``media="all"`` of ``CSS()``; pass ``media="all"`` to keep the attribute.
+- ``InlineStyle`` doesn't add ``media="all"`` anymore, like ``Stylesheet``.
+  That's the default for elements without a ``media`` attribute anyway.
 - Deprecated ``Media.render(nonce=...)``, use ``render(attrs={"nonce": ...})``
   like with ``ImportMap`` and ``JSON``.
 

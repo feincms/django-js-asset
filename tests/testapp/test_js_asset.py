@@ -93,7 +93,7 @@ class AssetTest(TestCase):
 
         self.assertEqual(
             str(InlineStyle("p{color:red}")),
-            '<style media="all">p{color:red}</style>',
+            "<style>p{color:red}</style>",
         )
 
     def test_css_attrs(self):
@@ -149,7 +149,7 @@ class AssetTest(TestCase):
         css = 'nav > a::after{content:"<3"}\n@media (width > 40rem){a{color:red}}'
         self.assertEqual(
             str(InlineStyle(css)),
-            f'<style media="all">{css}</style>',
+            f"<style>{css}</style>",
         )
 
     def test_inline_css_cannot_close_the_style_element(self):

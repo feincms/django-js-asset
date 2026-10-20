@@ -92,7 +92,7 @@ This produces:
 
     <script id="widget-configuration" type="application/json">{"configuration": 42}</script>
     <link href="/static/widget/style.css" media="all" rel="stylesheet">
-    <style media="all">p{color:red;}</style>
+    <style>p{color:red;}</style>
     <script src="/static/widget/script.js" type="module"></script>
 
 ``JS(src, **attributes)`` and ``CSS(href, **attributes)`` take the same
