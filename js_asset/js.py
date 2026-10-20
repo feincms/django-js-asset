@@ -29,23 +29,6 @@ __all__ = [
 static_lazy = lazy(static, str)
 
 
-def _hashable(data):
-    # A hashable form of the data which is consistent with dict equality
-    # (``a == b`` must imply ``hash(a) == hash(b)``): order-insensitive, and
-    # equal values such as ``1``, ``1.0`` and ``True`` hash the same. Lazy
-    # values, e.g. ``static_lazy`` paths, hash like the value they resolve to.
-    # Collisions are fine, so unhashable values all map to ``None``.
-    if isinstance(data, dict):
-        return frozenset((key, _hashable(value)) for key, value in data.items())
-    if isinstance(data, (list, tuple)):
-        return tuple(_hashable(value) for value in data)
-    try:
-        hash(data)
-    except TypeError:
-        return None
-    return data
-
-
 class InlineStyle(MediaAsset):
     """
     An inline ``<style>`` block. Unlike :class:`Stylesheet` its ``path`` is the
@@ -158,31 +141,44 @@ class CSS(metaclass=_ProducesAsset):
         return Stylesheet(href, **attributes)
 
 
-class _JSONAsset(MediaAsset):
+def _json_content(data):
+    # ``json_script`` escapes ``<``, ``>`` and ``&``, so the JSON cannot close
+    # the element. ``DjangoJSONEncoder`` resolves lazy values, e.g.
+    # ``static_lazy`` paths, at rendering time.
+    return mark_safe(
+        json_script(data)
+        .removeprefix('<script type="application/json">')
+        .removesuffix("</script>")
+    )
+
+
+class JSON(MediaAsset):
     """
-    A ``<script>`` element whose content is data serialized as JSON. Like
+    A ``<script type="application/json">`` data block. Like
     :class:`InlineStyle` its ``path`` is the content of the element.
     """
 
     element_template = "<script{attributes}>{path}</script>"
 
-    def __init__(self, data, **attributes):
+    def __init__(self, data, *, id="", **attributes):
+        if id:
+            attributes["id"] = id
         # Copy the data: assets are hashable (``Media.merge`` relies on it), so
-        # they must not change when the caller's dict does. Nothing hands out
-        # this copy (``JSON.data`` returns another one), so the hash of the
-        # data can be cached.
-        super().__init__(copy.deepcopy(data), **attributes)
+        # they must not change when the caller's dict does.
+        super().__init__(copy.deepcopy(data), type="application/json", **attributes)
+
+    @property
+    def data(self):
+        # A copy, see ``__init__``.
+        return copy.deepcopy(self._path)
+
+    @property
+    def id(self):
+        return self.attributes.get("id", "")
 
     @property
     def path(self):
-        # ``json_script`` escapes ``<``, ``>`` and ``&``, so the JSON cannot
-        # close the element. ``DjangoJSONEncoder`` resolves lazy values, e.g.
-        # ``static_lazy`` paths, at rendering time.
-        return mark_safe(
-            json_script(self._path)
-            .removeprefix('<script type="application/json">')
-            .removesuffix("</script>")
-        )
+        return _json_content(self._path)
 
     def __eq__(self, other):
         # Django 5.2 and 6.0 compare ``path`` only, which would make the equality
@@ -194,17 +190,10 @@ class _JSONAsset(MediaAsset):
         )
 
     def __hash__(self):
-        # ``__eq__`` compares the underlying dict order-insensitively, so the
-        # hash must too -- see ``_hashable``. Attributes are combined like
-        # Django's ``MediaAsset.__hash__`` does. They are mutable, so only the
-        # hash of the data is cached.
-        try:
-            data_hash = self._data_hash
-        except AttributeError:
-            data_hash = self._data_hash = hash(_hashable(self._path))
-        if self.attributes:
-            return data_hash ^ hash(frozenset(self.attributes.items()))
-        return data_hash
+        # Equal objects need equal hashes, distinct ones don't. Hashing the
+        # data consistently with ``__eq__`` (order-insensitive, ``1 == 1.0``)
+        # isn't worth it, data blocks are few and mostly differ in their id.
+        return hash(frozenset(self.attributes.items()))
 
     def render(self, *, attrs=None, nonce=""):
         if nonce:
@@ -230,22 +219,6 @@ class _JSONAsset(MediaAsset):
 
     def __str__(self):
         return self.render()
-
-
-class JSON(_JSONAsset):
-    def __init__(self, data, *, id="", **attributes):
-        if id:
-            attributes["id"] = id
-        super().__init__(data, type="application/json", **attributes)
-
-    @property
-    def data(self):
-        # A copy, see ``_JSONAsset.__init__``.
-        return copy.deepcopy(self._path)
-
-    @property
-    def id(self):
-        return self.attributes.get("id", "")
 
 
 _IMPORTMAP_KEYS = {"imports", "scopes", "integrity"}
@@ -368,16 +341,10 @@ class ImportMap:
                 scope: {key: _resolve(path) for key, path in scope_imports.items()}
                 for scope, scope_imports in data["scopes"].items()
             }
-        # See ``_JSONAsset.path`` on the escaping.
-        serialized = (
-            json_script(data)
-            .removeprefix('<script type="application/json">')
-            .removesuffix("</script>")
-        )
         return format_html(
             '<script type="importmap"{}>{}</script>',
             flatatt((attrs or {}) | self.attributes),
-            mark_safe(serialized),
+            _json_content(data),
         )
 
     def __str__(self):

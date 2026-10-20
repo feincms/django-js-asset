@@ -76,11 +76,12 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   `CSS(href, **attrs)`); the old forms (attrs dict, positional media,
   `inline=True`, implicit `media="all"`) are **deprecated, not removed** —
   django-ckeditor, django-mptt etc. depend on them. `JSON` has no
-  Django counterpart; it is a `MediaAsset` subclass based on `_JSONAsset`,
-  whose `path` is the escaped JSON (like `InlineStyle`)
-  and which defines its own `render(*, attrs=None)` (Django's lacks `attrs=`
-  on 5.2/6.0; `nonce=` is deprecated) and order-insensitive `__eq__`/`__hash__`
-  (Django 5.2/6.0 compare the rendered `path`). Output is byte-identical to native Django
+  Django counterpart; it is a `MediaAsset` subclass whose `path` is the
+  escaped JSON (like `InlineStyle`) and which defines its own
+  `render(*, attrs=None)` (Django's lacks `attrs=` on 5.2/6.0; `nonce=` is
+  deprecated) and an order-insensitive `__eq__` (Django 5.2/6.0 compare the
+  rendered `path`). Its `__hash__` only covers the attributes: that's
+  consistent with `__eq__` without hashing the data. Output is byte-identical to native Django
   assets (flatatt sorts attributes), which the exact-string tests depend on.
   Equality is Django's, so dedup is attribute-aware on 4.2-5.1 + 6.1+ and
   path-only on 5.2/6.0 (`test_set` derives its expectation from this).
