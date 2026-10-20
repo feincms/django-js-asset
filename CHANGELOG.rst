@@ -7,6 +7,9 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+5.0a3 (2026-10-20)
+~~~~~~~~~~~~~~~~~~
+
 Everything deprecated in 5.0 keeps working until 6.0. The
 backwards-incompatible changes are the ones from the pre-releases below, and
 ``InlineStyle`` no longer adding ``media="all"``, which browsers treat the
