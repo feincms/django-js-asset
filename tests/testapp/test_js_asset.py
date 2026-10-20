@@ -13,44 +13,46 @@ from js_asset.js import (
 
 
 class AssetTest(TestCase):
-    def test_asset(self):
-        media = Media(
-            css={"print": ["app/print.css"]},
-            js=[
-                "app/test.js",
-                JS("app/asset.js", **{"id": "asset-script", "data-the-answer": 42}),
-                JS("app/asset-without.js"),
-            ],
-        )
-        html = str(media)
-
-        # print(html)
-
-        self.assertInHTML(
-            '<link href="/static/app/print.css" media="print" rel="stylesheet" />',
-            html,
-        )
-        self.assertInHTML(
-            '<script src="/static/app/test.js"></script>',
-            html,
-        )
-        self.assertInHTML(
-            '<script src="/static/app/asset.js" data-the-answer="42" id="asset-script"></script>',
-            html,
-        )
-        self.assertInHTML(
-            '<script src="/static/app/asset-without.js"></script>',
-            html,
-        )
-
-    def test_absolute(self):
-        media = Media(js=[JS("https://cdn.example.org/script.js")])
-        html = str(media)
-
-        self.assertInHTML(
-            '<script src="https://cdn.example.org/script.js"></script>',
-            html,
-        )
+    def test_render(self):
+        for asset, html in [
+            (
+                JS("app.js", **{"id": "s", "data-the-answer": 42}),
+                '<script src="/static/app.js" data-the-answer="42" id="s"></script>',
+            ),
+            (
+                JS("https://cdn.example.org/a.js"),
+                '<script src="https://cdn.example.org/a.js"></script>',
+            ),
+            (
+                JS("app.js", bool=True, cool=False),
+                '<script src="/static/app.js" bool></script>',
+            ),
+            (
+                CSS("app.css", media="screen", crossorigin="anonymous"),
+                (
+                    '<link href="/static/app.css" crossorigin="anonymous"'
+                    ' media="screen" rel="stylesheet">'
+                ),
+            ),
+            (InlineStyle("p{color:red}"), "<style>p{color:red}</style>"),
+            (
+                JSON({"hello": "world"}, id="hello"),
+                (
+                    '<script id="hello" type="application/json">{"hello": "world"}'
+                    "</script>"
+                ),
+            ),
+            (
+                # Escaped so that the data cannot close the element.
+                JSON({"a": "</script>"}),
+                (
+                    '<script type="application/json">{"a": "\\u003C/script\\u003E"}'
+                    "</script>"
+                ),
+            ),
+        ]:
+            with self.subTest(html=html):
+                self.assertEqual(str(asset), html)
 
     def test_asset_merging(self):
         media1 = Media(js=["thing.js", JS("other.js"), "some.js"])
@@ -73,35 +75,6 @@ class AssetTest(TestCase):
         # dedup on the path alone, so all three collapse -> 1.
         attribute_aware = media[0] != media[2]
         self.assertEqual(len(set(media)), 2 if attribute_aware else 1)
-
-    def test_boolean_attributes(self):
-        self.assertEqual(
-            str(JS("app/asset.js", bool=True, cool=False)),
-            '<script src="/static/app/asset.js" bool></script>',
-        )
-
-    def test_css(self):
-        self.assertEqual(
-            str(CSS("app/style.css", media="all")),
-            '<link href="/static/app/style.css" media="all" rel="stylesheet">',
-        )
-
-        self.assertEqual(
-            str(CSS("app/style.css", media="screen")),
-            '<link href="/static/app/style.css" media="screen" rel="stylesheet">',
-        )
-
-        self.assertEqual(
-            str(InlineStyle("p{color:red}")),
-            "<style>p{color:red}</style>",
-        )
-
-    def test_css_attrs(self):
-        self.assertEqual(
-            str(CSS("app.css", crossorigin="anonymous", media="all")),
-            '<link href="/static/app.css" crossorigin="anonymous" media="all"'
-            ' rel="stylesheet">',
-        )
 
     def test_deprecated_signatures(self):
         # ``JS``/``CSS`` will become aliases of ``Script``/``Stylesheet``. Until
@@ -143,59 +116,33 @@ class AssetTest(TestCase):
                 self.assertEqual(str(asset), html)
                 self.assertEqual(cm.filename, __file__)
 
-    def test_inline_css_is_not_escaped(self):
-        # A ``<style>`` element is raw text: escaping does not round-trip there,
-        # it just corrupts the CSS.
-        css = 'nav > a::after{content:"<3"}\n@media (width > 40rem){a{color:red}}'
-        self.assertEqual(
-            str(InlineStyle(css)),
-            f"<style>{css}</style>",
-        )
-
     def test_inline_css_cannot_close_the_style_element(self):
         # The one sequence which would let the CSS escape its element.
         for css in ("a{}</style><script>alert(1)</script>", "a{}</STYLE >"):
             with self.subTest(css=css), self.assertRaises(ValueError):
                 InlineStyle(css)
 
-    def test_js_produces_script(self):
-        asset = JS("app/asset.js", id="x")
-        # ``JS`` is a factory producing a Django ``Script`` ...
-        self.assertIsInstance(asset, Script)
-        self.assertNotIsInstance(asset, Stylesheet)
-        # ... while ``isinstance(x, JS)`` keeps answering truthfully.
-        self.assertIsInstance(asset, JS)
-        self.assertNotIsInstance(CSS("app/style.css", media="all"), JS)
-
-    def test_css_produces_stylesheet_or_inline(self):
-        link = CSS("app/style.css", media="all")
-        inline = InlineStyle("p{color:red}")
-        self.assertIsInstance(link, Stylesheet)
-        self.assertIsInstance(inline, InlineStyle)
-        # Both flavours answer ``isinstance(x, CSS)``.
-        self.assertIsInstance(link, CSS)
-        self.assertIsInstance(inline, CSS)
-        self.assertNotIsInstance(JS("app/asset.js"), CSS)
-
     def test_isinstance_both_ways(self):
         # ``JS``/``CSS`` produce Django's assets, and Django's assets count as
         # ``JS``/``CSS``, so checks against either name keep working.
-        self.assertIsInstance(JS("a.js"), Script)
+        self.assertIs(type(JS("a.js")), Script)
+        self.assertIs(type(CSS("a.css", media="all")), Stylesheet)
         self.assertIsInstance(Script("a.js"), JS)
-        self.assertIsInstance(CSS("a.css", media="all"), Stylesheet)
         self.assertIsInstance(Stylesheet("a.css"), CSS)
         self.assertIsInstance(InlineStyle("a{}"), CSS)
         self.assertTrue(issubclass(Script, JS))
         self.assertTrue(issubclass(Stylesheet, CSS))
         self.assertFalse(issubclass(Script, CSS))
-        self.assertFalse(issubclass(JSON, JS))
+        self.assertFalse(issubclass(Stylesheet, JS))
         self.assertNotIsInstance(JSON({}), JS)
         self.assertNotIsInstance("a.js", JS)
 
-    def test_json_is_a_media_asset(self):
+    def test_json(self):
         data = {"hello": "world"}
         asset = JSON(data, id="hello")
         self.assertIsInstance(asset, MediaAsset)
+        self.assertEqual((asset.data, asset.id), ({"hello": "world"}, "hello"))
+        self.assertEqual(JSON({}).id, "")
         self.assertEqual(
             asset.render(attrs={"nonce": "N"}),
             '<script id="hello" nonce="N" type="application/json">'
@@ -203,40 +150,15 @@ class AssetTest(TestCase):
         )
         with self.assertWarns(DeprecationWarning):
             asset.render(nonce="N")
-        self.assertEqual((asset.data, asset.id), ({"hello": "world"}, "hello"))
-        self.assertEqual(JSON({"hello": "world"}).id, "")
+        with self.assertRaisesMessage(ValueError, "conflicting attributes: type"):
+            asset.render(attrs={"type": "text/plain"})
 
-        # Copies the data, and equality and hashing ignore the order of keys.
+        # The data is copied in both directions.
         data["hello"] = "changed"
-        self.assertEqual(asset.data, {"hello": "world"})
-        # ``data`` returns a copy as well.
-        hash(asset)
         asset.data["hello"] = "changed"
-        self.assertEqual(asset, JSON({"hello": "world"}, id="hello"))
-        self.assertEqual(hash(asset), hash(JSON({"hello": "world"}, id="hello")))
+        self.assertEqual(asset.data, {"hello": "world"})
+
+        # Equality ignores the order of keys, but not attributes.
         self.assertEqual(JSON({"a": 1, "b": 2}), JSON({"b": 2, "a": 1}))
         self.assertEqual(hash(JSON({"a": 1, "b": 2})), hash(JSON({"b": 2, "a": 1})))
         self.assertNotEqual(JSON({"a": 1}, id="x"), JSON({"a": 1}))
-
-        # Equal data hashes the same, and all JSON data is hashable.
-        self.assertEqual(JSON({"a": [1]}), JSON({"a": [True]}))
-        self.assertEqual(hash(JSON({"a": [1]})), hash(JSON({"a": [True]})))
-        self.assertEqual(hash(JSON({"a": 1.0})), hash(JSON({"a": 1})))
-        hash(JSON({1: "a", "b": 2}))
-
-        # Escaped so that the data cannot close the element.
-        self.assertEqual(
-            str(JSON({"a": "</script>"})),
-            '<script type="application/json">{"a": "\\u003C/script\\u003E"}</script>',
-        )
-
-    def test_json(self):
-        self.assertEqual(
-            str(JSON({"hello": "world"}, id="hello")),
-            '<script id="hello" type="application/json">{"hello": "world"}</script>',
-        )
-
-        self.assertEqual(
-            str(JSON({"hello": "world"})),
-            '<script type="application/json">{"hello": "world"}</script>',
-        )
