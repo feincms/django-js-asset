@@ -177,6 +177,21 @@ class AssetTest(TestCase):
         self.assertIsInstance(inline, CSS)
         self.assertNotIsInstance(JS("app/asset.js"), CSS)
 
+    def test_isinstance_both_ways(self):
+        # ``JS``/``CSS`` produce Django's assets, and Django's assets count as
+        # ``JS``/``CSS``, so checks against either name keep working.
+        self.assertIsInstance(JS("a.js"), Script)
+        self.assertIsInstance(Script("a.js"), JS)
+        self.assertIsInstance(CSS("a.css", media="all"), Stylesheet)
+        self.assertIsInstance(Stylesheet("a.css"), CSS)
+        self.assertIsInstance(InlineStyle("a{}"), CSS)
+        self.assertTrue(issubclass(Script, JS))
+        self.assertTrue(issubclass(Stylesheet, CSS))
+        self.assertFalse(issubclass(Script, CSS))
+        self.assertFalse(issubclass(JSON, JS))
+        self.assertNotIsInstance(JSON({}), JS)
+        self.assertNotIsInstance("a.js", JS)
+
     def test_json_is_a_media_asset(self):
         data = {"hello": "world"}
         asset = JSON(data, id="hello")
