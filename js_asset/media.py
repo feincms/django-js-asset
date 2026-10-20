@@ -49,10 +49,9 @@ class Media(forms.Media):
 
     # -- Normalization ----------------------------------------------------
 
-    # ``forms.Media.__init__`` calls these through ``self``, so a subclass can
-    # override them. They only exist -- and are only reached -- on Django >=
-    # 6.1; older versions keep js/css entries as given and ``_render_{js,css}``
-    # wraps them at render time instead.
+    # ``forms.Media.__init__`` calls these through ``self`` on Django >= 6.1,
+    # so a subclass can override them. Older versions keep js/css entries as
+    # given, so ``_render_{js,css}`` call them too.
     #
     # Django 6.1 normalizes with ``isinstance(path, str)``, which swallows
     # html-safe strings: a ``SafeString`` such as
@@ -235,30 +234,18 @@ class Media(forms.Media):
         return super()._js
 
     def _render_js(self, attrs):
-        rendered = []
-        for item in self._js:
-            # ``hasattr(item, "__html__")`` -- not ``isinstance(item, str)``:
-            # ``SafeString`` is a ``str`` subclass, and html-safe strings such
-            # as ``mark_safe("<script defer src=...></script>")`` are complete
-            # tags which must render verbatim instead of being resolved through
-            # ``static()``. Only bare paths are wrapped. (Django hit the same
-            # trap in 6.1, fixed for 6.1.1 -- ticket #37262.)
-            asset = item if hasattr(item, "__html__") else Script(item)
-            rendered.append(self._render_asset(asset, attrs))
-        return rendered
+        # Django < 6.1 keeps bare paths as strings, so wrap them here as well.
+        return [
+            self._render_asset(asset, attrs) for asset in self._normalize_js(self._js)
+        ]
 
     def _render_css(self, attrs):
-        rendered = []
-        for medium in sorted(self._css):
-            for item in self._css[medium]:
-                # See ``_render_js`` on the ``__html__`` check.
-                asset = (
-                    item
-                    if hasattr(item, "__html__")
-                    else Stylesheet(item, media=medium)
-                )
-                rendered.append(self._render_asset(asset, attrs))
-        return rendered
+        css = self._normalize_css(self._css)
+        return [
+            self._render_asset(asset, attrs)
+            for medium in sorted(css)
+            for asset in css[medium]
+        ]
 
     @staticmethod
     def _render_asset(asset, attrs):

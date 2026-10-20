@@ -32,7 +32,8 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   the tag from `element_template` + `flatatt`, which works on every version.
 - Cross-version gotcha: Django >= 6.1 wraps bare js/css path strings into
   `Script`/`Stylesheet` in `Media._js`/`._css`; older Django keeps raw strings.
-  `media.py:_render_{js,css}` wrap any leftover strings via `JS()`/`CSS()`, so
+  `media.py:_render_{js,css}` wrap any leftover strings by running the result
+  through our `_normalize_{js,css}` again, so
   `_render_asset` always sees a `MediaAsset` (or an opaque `__html__` asset).
 - **Never test an asset with `isinstance(item, str)`.** `SafeString` is a `str`
   subclass, so `mark_safe('<script src=...></script>')` — a complete tag that
