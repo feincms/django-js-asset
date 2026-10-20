@@ -12,6 +12,8 @@ Next version
   attribute dicts (``JS("a.js", {...})``, ``attrs=...``), a positional
   ``media``, ``CSS(..., inline=True)`` (use ``InlineStyle``) and the implicit
   ``media="all"`` of ``CSS()``; pass ``media="all"`` to keep the attribute.
+- Deprecated ``Media.render(nonce=...)``, use ``render(attrs={"nonce": ...})``
+  like with ``ImportMap`` and ``JSON``.
 
 5.0a2 (2026-10-14)
 ~~~~~~~~~~~~~~~~~~

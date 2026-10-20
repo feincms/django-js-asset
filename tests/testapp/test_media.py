@@ -490,10 +490,17 @@ class LazyNonceTest(TestCase):
     def test_lazy_nonce_applied_to_importmaps(self):
         media = Media(importmap=ImportMap({"a": "/static/a.js"}))
         self.assertEqual(
-            media.render(nonce=LazyNonce("l@zy")),
+            media.render(attrs={"nonce": LazyNonce("l@zy")}),
             '<script type="importmap" nonce="l@zy">'
             '{"imports": {"a": "/static/a.js"}}</script>',
         )
+
+    def test_render_nonce_is_deprecated(self):
+        media = Media(nonce="stored", js=[JS("app.js")])
+        with self.assertWarns(DeprecationWarning) as cm:
+            html = media.render(nonce="n")
+        self.assertEqual(html, '<script src="/static/app.js" nonce="n"></script>')
+        self.assertEqual(cm.filename, __file__)
 
     def test_lazy_nonce_untouched_for_empty_media(self):
         # Nothing to render, so the nonce must not be generated: on Django the

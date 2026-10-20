@@ -1,3 +1,5 @@
+import warnings
+
 from django import forms
 from django.forms.utils import flatatt
 from django.utils.html import format_html, mark_safe
@@ -151,7 +153,15 @@ class Media(forms.Media):
     # -- Rendering --------------------------------------------------------
 
     def render(self, *, nonce=None, attrs=None):
-        attrs = self._resolve_attrs(nonce, attrs)
+        if nonce is not None:
+            warnings.warn(
+                "Media.render(nonce=...) is deprecated, use"
+                " render(attrs={'nonce': ...}) instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            attrs = {"nonce": nonce} | (attrs or {})
+        attrs = self._resolve_attrs(attrs)
         return mark_safe(
             "\n".join(
                 filter(
@@ -166,10 +176,10 @@ class Media(forms.Media):
         )
 
     def render_importmap(self, *, attrs=None):
-        return self._render_importmap(self._resolve_attrs(None, attrs))
+        return self._render_importmap(self._resolve_attrs(attrs))
 
     def render_css(self, *, attrs=None):
-        return self._render_css(self._resolve_attrs(None, attrs))
+        return self._render_css(self._resolve_attrs(attrs))
 
     def render_js(self, *, attrs=None):
         # ``render_{css,js}`` are part of ``forms.Media``'s public API (and are
@@ -177,19 +187,16 @@ class Media(forms.Media):
         # as well -- otherwise anything rendering the media through them
         # silently loses it. The ``attrs`` keyword only
         # exists on Django >= 6.1; accepting it keeps the signature compatible.
-        return self._render_js(self._resolve_attrs(None, attrs))
+        return self._render_js(self._resolve_attrs(attrs))
 
-    def _resolve_attrs(self, nonce, attrs):
+    def _resolve_attrs(self, attrs):
         # ``attrs`` are added to every tag, like Django >= 6.1 does. Its
         # built-in CSP integration renders media via
         # ``media.render(attrs={"nonce": nonce})`` (see the ``csp_nonce_attr``
         # template tag). The stored nonce is used as a fallback, since
         # templates call ``render()`` without arguments.
         attrs = dict(attrs or {})
-        nonce = self._resolve_nonce(
-            nonce if attrs.get("nonce") is None else attrs["nonce"]
-        )
-        attrs.pop("nonce", None)
+        nonce = self._resolve_nonce(attrs.pop("nonce", None))
         if nonce:
             attrs["nonce"] = nonce
         return attrs

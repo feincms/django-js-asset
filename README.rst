@@ -513,9 +513,9 @@ You can always set the nonce yourself, either on construction or per request:
 
 .. code-block:: python
 
-    Media(nonce=the_nonce, js=[...])      # at construction
-    some_media.with_nonce(the_nonce)      # copy with a nonce
-    some_media.render(nonce=the_nonce)    # one-off render
+    Media(nonce=the_nonce, js=[...])               # at construction
+    some_media.with_nonce(the_nonce)               # copy with a nonce
+    some_media.render(attrs={"nonce": the_nonce})  # one-off render
 
 
 Notes
