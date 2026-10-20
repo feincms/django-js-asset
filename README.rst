@@ -5,75 +5,29 @@ django-js-asset -- JS, CSS and JSON support for django.forms.Media
 .. image:: https://github.com/feincms/django-js-asset/workflows/Tests/badge.svg
     :target: https://github.com/feincms/django-js-asset
 
-**Note!** `Django 5.2 adds its own support for JavaScript objects
-<https://docs.djangoproject.com/en/dev/topics/forms/media/#script-objects>`__.
-This library has a slightly different API and also supports much older versions
-of Django, *and* it also supports CSS and JSON tags. As of the next version
-``JS`` and ``CSS`` actually *produce* Django's own ``Script`` and ``Stylesheet``
-objects (backported on Django versions that lack them), so js_asset assets,
-plain path strings and Django's native assets share the same de-duplication
-buckets in ``forms.Media`` -- see `Deduplication`_ below.
+django-js-asset brings Django's object-based media assets to every supported
+Django version and adds what Django doesn't have yet:
 
-.. warning::
+* ``JS`` and ``CSS`` produce Django's own `Script and Stylesheet
+  <https://docs.djangoproject.com/en/dev/topics/forms/media/#script-objects>`__
+  objects, backported to Django versions which lack them (``Script`` arrived in
+  5.2, ``Stylesheet`` in 6.1). They will become plain aliases.
+* ``InlineStyle`` and ``JSON`` render ``<style>`` blocks and JSON data blocks.
+* ``ImportMap`` and ``js_asset.Media`` merge the import maps of all media into
+  a single ``<script type="importmap">``.
+* ``js_asset.Media`` applies CSP nonces on every Django version.
 
-   **Upgrading from 3.x?** django-js-asset 4.0 is somewhat different, especially
-   if you use **import maps**: the global ``importmap`` object and its context
-   processor have been removed in favour of merging ``ImportMap`` objects
-   through the new ``js_asset.Media`` class (see `Import maps`_ below). Read the
-   `change log
-   <https://github.com/feincms/django-js-asset/blob/main/CHANGELOG.rst>`_ before
-   upgrading.
-
-Usage
-=====
-
-Use this to insert a script tag via ``forms.Media`` containing additional
-attributes (such as ``id`` and ``data-*`` for CSP-compatible data
-injection.):
-
-.. code-block:: python
-
-    from js_asset import JS
-
-    forms.Media(js=[
-        JS("asset.js", **{
-            "id": "asset-script",
-            "data-answer": "42",
-        }),
-    ])
-
-The rendered media tag (via ``{{ media.js }}`` or ``{{ media }}``) will
-now contain a script tag as follows, without line breaks:
-
-.. code-block:: html
-
-    <script src="/static/asset.js" data-answer="42"
-        id="asset-script"></script>
-
-The attributes are automatically escaped. The data attributes may now be
-accessed inside ``asset.js``:
-
-.. code-block:: javascript
-
-    let answer = document.querySelector("#asset-script").dataset.answer;
-
-Also, because the implementation of ``static`` differs between supported
-Django versions (older do not take the presence of
-``django.contrib.staticfiles`` in ``INSTALLED_APPS`` into account), a
-``js_asset.static`` function is provided which does the right thing
-automatically.
+It supports Django 4.2 and newer, up to and including the main branch; the
+`tox configuration
+<https://github.com/feincms/django-js-asset/blob/main/tox.ini>`_ has the
+definitive answers. 5.0 changes import maps and attributes in
+backwards-incompatible ways, read the `change log
+<https://github.com/feincms/django-js-asset/blob/main/CHANGELOG.rst>`_ before
+upgrading.
 
 
-CSS and JSON support
-====================
-
-Since 3.0 django-js-asset also ships a ``CSS`` and ``JSON`` media object which
-can be used to ship stylesheets, inline styles and JSON blobs to the frontend.
-It's recommended to pass those through ``forms.Media(js=[])`` as well since
-``js`` is a simple list while ``css`` uses a dictionary keyed with the media to
-use for the stylesheet.
-
-So, you can add everything at once:
+Assets
+======
 
 .. code-block:: python
 
@@ -84,9 +38,10 @@ So, you can add everything at once:
         CSS("widget/style.css", media="all"),
         InlineStyle("p{color:red;}"),
         JS("widget/script.js", type="module"),
+        JS("widget/data.js", **{"id": "data-script", "data-answer": "42"}),
     ])
 
-This produces:
+This renders (via ``{{ media }}`` or ``{{ media.js }}``):
 
 .. code-block:: html
 
@@ -94,13 +49,22 @@ This produces:
     <link href="/static/widget/style.css" media="all" rel="stylesheet">
     <style>p{color:red;}</style>
     <script src="/static/widget/script.js" type="module"></script>
+    <script src="/static/widget/data.js" data-answer="42" id="data-script"></script>
 
 ``JS(src, **attributes)`` and ``CSS(href, **attributes)`` take the same
-arguments as Django's ``Script`` and ``Stylesheet``, which they will become
-aliases of, e.g. ``CSS("widget/style.css", crossorigin="anonymous")``. Use
-``**{...}`` for attributes which aren't valid Python identifiers. The older
-forms are deprecated: an attributes dict (``JS("a.js", {...})``,
-``attrs={...}``), ``CSS(path, "print")`` with a positional media,
+arguments as Django's ``Script`` and ``Stylesheet``. Use ``**{...}`` for
+attributes which aren't valid Python identifiers, such as ``data-*``
+attributes, which are a CSP-compatible way to pass data to a script
+(``document.querySelector("#data-script").dataset.answer``). Attributes are
+escaped.
+
+All assets can go into ``js=[...]``, which is a simple list, while ``css``
+needs a dictionary keyed by medium. A stylesheet in ``js`` is only
+de-duplicated against that list though, ``forms.Media`` keeps ``css`` in a
+separate slot.
+
+Deprecated forms, which still work: an attributes dict (``JS("a.js", {...})``,
+``attrs={...}``), a positional media (``CSS("a.css", "print")``),
 ``CSS(..., inline=True)`` (use ``InlineStyle``) and ``CSS(path)`` without
 ``media``, which still adds ``media="all"`` but will stop doing so like
 ``Stylesheet``. Pass ``media="all"`` explicitly to keep the attribute.
@@ -111,56 +75,40 @@ same reason the CSS must not contain ``</style``, which would end the element
 early; passing such CSS raises a ``ValueError``.
 
 
-
-Compatibility
-=============
-
-At the time of writing this app is compatible with Django 4.2 and better
-(up to and including the Django main branch), but have a look at the
-`tox configuration
-<https://github.com/feincms/django-js-asset/blob/main/tox.ini>`_ for
-definitive answers.
-
-
 Deduplication
 =============
 
-``JS`` and ``CSS`` produce Django's own ``Script`` and ``Stylesheet`` objects
-(backported on Django versions that lack them), so they de-duplicate against
-each other, against plain path strings, and against Django's native assets when
-``forms.Media`` merges the media of several forms and widgets. The rules for
-what counts as a duplicate are Django's, and Django changed them between
-releases:
+Since ``JS`` and ``CSS`` produce Django's own objects, they de-duplicate
+against each other, against plain path strings and against Django's native
+assets when ``forms.Media`` merges the media of several forms and widgets. The
+rules are Django's, which changed between releases:
 
 * **Django 4.2 - 5.1 and 6.1+:** two assets are equal when both the path *and*
-  the attributes match, so ``JS("a.js", id="x")`` and
-  ``JS("a.js", id="y")`` are distinct and both render.
-* **Django 5.2 and 6.0:** Django compares the **path only**, so those same two
-  assets de-duplicate to one (whichever wins the merge) -- exactly as Django's
-  own ``Script``/``Stylesheet`` behave on those versions.
+  the attributes match, so ``JS("a.js", id="x")`` and ``JS("a.js", id="y")``
+  are distinct and both render.
+* **Django 5.2 and 6.0:** Django compares the **path only**, so those two
+  de-duplicate to one (whichever wins the merge).
 
-A given file referenced both as a bare string and via ``JS``/``CSS`` always
-de-duplicates, and nothing is ever rendered twice for the same path. The
-per-version difference only affects the unusual case of the same path carried
-with *different* attributes in a single merge.
+A file referenced both as a bare string and via ``JS``/``CSS`` always
+de-duplicates.
 
 
 Import maps
 ===========
 
-django-js-asset can ship `import maps
-<https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap>`__.
-They let your modules import short names (``import { Stuff } from
-"my-library"``) and have the browser resolve them to the real, possibly hashed,
-URLs produced by Django's ``ManifestStaticFilesStorage`` -- without rewriting
-the imports in your JavaScript.
+`Import maps
+<https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap>`__
+let your modules import short names (``import { Stuff } from "my-library"``)
+and have the browser resolve them to the real, possibly hashed, URLs produced
+by Django's ``ManifestStaticFilesStorage`` -- without rewriting the imports in
+your JavaScript.
 
-Browsers do not reliably support more than one import map per page, so all of
-them have to be merged into one. ``js_asset.Media`` does this for you: pass an
-``ImportMap`` to your media wherever it is relevant -- typically next to the
-module that needs it -- and the import maps of all media objects added together
-are combined into a single ``<script type="importmap">``, rendered before every
-other script:
+Browsers do not reliably support more than one import map per page, and none
+can apply entries to modules which have already been loaded. ``js_asset.Media``
+therefore merges them: pass an ``ImportMap`` to your media wherever it is
+relevant -- typically next to the module that needs it -- and the import maps of
+all media objects added together are combined into a single
+``<script type="importmap">``, rendered before every other script:
 
 .. code-block:: python
 
@@ -172,13 +120,14 @@ other script:
     )
 
 ``ImportMap`` takes the ``imports`` of the import map, and ``scopes=`` and
-``integrity=`` keyword arguments for the other parts. Paths are resolved when
-rendering, like ``JS`` paths: relative paths are passed through ``static()``,
-so defining import maps at module level works with
-``ManifestStaticFilesStorage``. URLs with a scheme (e.g. ``https:``) and paths
-starting with ``/`` are used as they are. Prefix mappings such as
-``{"my-library/": "my-library/"}`` are resolved too, but ``static()`` doesn't
-hash directories, so modules loaded through them use their unhashed names.
+``integrity=`` keyword arguments for the other parts (passing a full import map
+is deprecated). Paths are resolved when rendering, like ``JS`` paths: relative
+paths are passed through ``static()``, so defining import maps at module level
+works with ``ManifestStaticFilesStorage``. URLs with a scheme (e.g.
+``https:``) and paths starting with ``/`` are used as they are. Prefix mappings
+such as ``{"my-library/": "my-library/"}`` are resolved too, but ``static()``
+doesn't hash directories, so modules loaded through them use their unhashed
+names.
 
 Scope prefixes and the URLs in ``integrity`` are never resolved, so
 ``integrity={"app/a.js": ...}`` doesn't apply to ``/static/app/a.js`` --
@@ -198,41 +147,28 @@ Scope prefixes and the URLs in ``integrity`` are never resolved, so
    proposed by `DEP 0021 <https://github.com/django/deps/pull/122>`__. Explicit
    ``integrity`` entries will then only be needed for other modules.
 
-.. note::
-
-   Passing a full import map (``ImportMap({"imports": {...}})``) is deprecated,
-   but still works.
-
 Import maps are merged when adding media objects, so the media added later
-(e.g. the project's) overrides entries of earlier ones (e.g. of apps).
+(e.g. the project's) overrides entries of earlier ones (e.g. of apps). Make
+sure everything that needs the same map ends up in one merged ``Media``.
 ``{{ media }}`` renders the import map, the CSS and the JavaScript;
 ``{{ media.importmap }}`` renders only the import map, and ``{{ media.js }}``
 doesn't include it.
 
-.. note::
+Import maps aren't media assets: ``js_asset.Media`` raises a ``TypeError`` when
+rendering one from a ``js`` list. Django's ``forms.Media`` doesn't know about
+import maps, so widgets and forms can't use ``class Media`` for them. Define
+``media`` directly instead:
 
-   Import maps aren't media assets: Adding them to ``js`` lists isn't
-   supported anymore, and ``js_asset.Media`` raises a ``TypeError`` when
-   rendering them. Django's ``forms.Media`` doesn't know about import maps, so
-   widgets and forms can't use ``class Media`` for them. Define ``media``
-   directly instead:
+.. code-block:: python
 
-   .. code-block:: python
+    class EditorWidget(forms.Textarea):
+        media = Media(
+            importmap=ImportMap({"editor": "editor/index.js"}),
+            js=[JS("editor/init.js", type="module")],
+        )
 
-       class EditorWidget(forms.Textarea):
-           media = Media(
-               importmap=ImportMap({"editor": "editor/index.js"}),
-               js=[JS("editor/init.js", type="module")],
-           )
-
-See `CSP nonces`_ below for per-request nonces.
-
-.. note::
-
-   Earlier releases shipped a single global ``importmap`` object plus a context
-   processor (rendered via ``{{ importmap }}``). That approach has been removed
-   in favour of the per-``Media`` merging shown above; use ``js_asset.Media``
-   instead.
+Import maps are subject to ``script-src``, see `CSP nonces`_ for per-request
+nonces.
 
 
 Rendering media in views and the admin
@@ -516,21 +452,3 @@ You can always set the nonce yourself, either on construction or per request:
     Media(nonce=the_nonce, js=[...])               # at construction
     some_media.with_nonce(the_nonce)               # copy with a nonce
     some_media.render(attrs={"nonce": the_nonce})  # one-off render
-
-
-Notes
-=====
-
-* The merged import map is always rendered first, so a module added in the same
-  media can rely on it.
-* Make sure everything that needs the same map ends up in one merged
-  ``Media``. Some browsers merge several ``<script type="importmap">`` tags,
-  others ignore all but the first, and none can apply entries to modules which
-  have already been loaded.
-* Import maps are subject to ``script-src``; make sure ``CSP.NONCE`` is present
-  there (and in ``style-src`` if you render stylesheets).
-* A stylesheet placed in ``js=[...]`` is only de-duplicated against that list.
-  ``forms.Media`` keeps the ``css={...}`` dictionary in a separate slot, so the
-  same file listed in both renders twice -- pick one.
-* Browser support for *multiple* import maps is still uneven; merging into a
-  single map is currently the only portable way to use several of them.
