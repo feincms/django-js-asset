@@ -280,8 +280,8 @@ class MediaTest(TestCase):
         self.assertEqual(media.render(), '<script src="/static/app.js"></script>')
 
     def test_bare_string_assets_get_nonce(self):
-        # Bare paths stay strings on Django < 6.2 and are wrapped into
-        # MediaAsset objects on >= 6.2; both paths must receive the nonce.
+        # Bare paths stay strings on Django < 6.1 and are wrapped into
+        # MediaAsset objects on >= 6.1; both paths must receive the nonce.
         media = Media(nonce="n0nce", css={"all": ["plain.css"]}, js=["plain.js"])
         html = media.render()
         self.assertInHTML(
@@ -312,7 +312,7 @@ class MediaTest(TestCase):
             self.assertInHTML(snippet, html)
 
     def test_render_accepts_attrs_nonce(self):
-        # Django >= 6.2's CSP integration calls media.render(attrs={"nonce": ...}).
+        # Django >= 6.1's CSP integration calls media.render(attrs={"nonce": ...}).
         media = Media(js=[JS("app.js")])
         self.assertInHTML(
             '<script src="/static/app.js" nonce="from-attrs"></script>',
@@ -438,7 +438,7 @@ class MediaTest(TestCase):
 
 class LazyNonce(SimpleLazyObject):
     """
-    A stand-in for ``django.utils.csp.LazyNonce`` (Django >= 6.2), which is
+    A stand-in for ``django.utils.csp.LazyNonce`` (Django >= 6.0), which is
     *falsy* until the nonce has been generated so that a nonce is only added to
     the CSP header if the template actually used it.
     """
@@ -452,7 +452,7 @@ class LazyNonce(SimpleLazyObject):
 
 class LazyNonceTest(TestCase):
     def test_lazy_nonce_from_attrs(self):
-        # Django >= 6.2 renders media as ``media.render(attrs={"nonce": nonce})``
+        # Django >= 6.1 renders media as ``media.render(attrs={"nonce": nonce})``
         # with the lazy nonce straight from the template context. Truth-testing
         # it says "no nonce" as long as it has not been read yet, so the nonce
         # must be resolved instead of checked for truthiness.

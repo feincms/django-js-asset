@@ -25,8 +25,8 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   Django lacks them they are **backported** in `js_asset/_compat.py`, so the
   4.2 floor holds — we provide the machinery, we don't *depend* on Django
   having it. Availability in real Django: `Script` (5.2+), `Stylesheet` +
-  `MediaAsset.render(attrs=)` (6.1+), attribute-aware `__eq__`/`__hash__`
-  (6.2+). The `<5.2` backport mirrors the **6.2** contract.
+  `MediaAsset.render(attrs=)` + attribute-aware `__eq__`/`__hash__` (6.1+,
+  ticket #37088). The `<5.2` backport mirrors the **6.1** contract.
 - Don't rely on Django's `MediaAsset.render(attrs=...)` existing: it is absent
   on 5.2/6.0. `media.py:_render_asset` injects the nonce itself by rebuilding
   the tag from `element_template` + `flatatt`, which works on every version.
@@ -62,12 +62,12 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
 ## Layout
 
 - `js_asset/_compat.py` — `MediaAsset`/`Script`/`Stylesheet`: imported from
-  Django where present, backported (with the 6.2 contract) below 5.2/6.1.
+  Django where present, backported (with the 6.1 contract) below 5.2/6.1.
 - `js_asset/js.py` — `JS`/`CSS` are **factories** (a `_ProducesAsset`
   metaclass): calling them returns a Django `Script`/`Stylesheet`/`InlineStyle`
   so they dedup in `forms.Media.merge` against native assets *and* bare path
   strings; `isinstance(x, JS)` still works via `__instancecheck__`. **Never
-  make them subclasses**: Django 6.2's `MediaAsset.__eq__` checks
+  make them subclasses**: Django 6.1+'s `MediaAsset.__eq__` checks
   `self.__class__ is other.__class__`, so a `JS(Script)` would not equal the
   `Script` Django wraps bare strings into, and the file would render twice.
   Goal: minimal delta to Django, `JS = Script` / `CSS = Stylesheet` in a later
@@ -79,10 +79,10 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   whose `path` is the escaped JSON (like `InlineStyle`)
   and which defines its own `render(*, attrs=None)` (Django's lacks `attrs=`
   on 5.2/6.0; `nonce=` is deprecated) and order-insensitive `__eq__`/`__hash__`
-  (Django < 6.2 compares the rendered `path`). Output is byte-identical to native Django
+  (Django 5.2/6.0 compare the rendered `path`). Output is byte-identical to native Django
   assets (flatatt sorts attributes), which the exact-string tests depend on.
-  Equality is Django's, so dedup is attribute-aware on 4.2-5.1 + 6.2+ and
-  path-only on 5.2-6.1 (`test_set` derives its expectation from this).
+  Equality is Django's, so dedup is attribute-aware on 4.2-5.1 + 6.1+ and
+  path-only on 5.2/6.0 (`test_set` derives its expectation from this).
   `InlineStyle` renders its CSS **verbatim** (`path` returns `mark_safe`):
   `<style>` is a raw text element, so escaping does not round-trip there and
   `nav &gt; a` would simply not match. The constructor rejects CSS containing

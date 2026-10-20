@@ -3,14 +3,14 @@ Django's object-based media assets (``MediaAsset``, ``Script``,
 ``Stylesheet``) appeared gradually:
 
 * ``MediaAsset`` and ``Script`` -- Django 5.2
-* ``Stylesheet`` and ``MediaAsset.render(*, attrs=)`` -- Django 6.1
-* attribute-aware ``__eq__``/``__hash__`` (path *and* attributes) -- Django 6.2
+* ``Stylesheet``, ``MediaAsset.render(*, attrs=)`` and attribute-aware
+  ``__eq__``/``__hash__`` (path *and* attributes) -- Django 6.1
 
 ``js_asset`` supports Django >= 4.2, so this module backports whatever the
-running Django lacks. Backports follow the **6.2** contract (attribute-aware
+running Django lacks. Backports follow the **6.1** contract (attribute-aware
 equality + ``render(attrs=)``) so the support floor matches the design target.
-On 5.2 / 6.0 / 6.1 we use Django's *native* ``MediaAsset``, which still dedups
-on the path alone -- that looser middle is intentional and accepted.
+On 5.2 / 6.0 we use Django's *native* ``MediaAsset``, which still dedups on the
+path alone -- that looser middle is intentional and accepted.
 """
 
 import django
@@ -35,7 +35,7 @@ else:
             self.attributes = attributes
 
         def __eq__(self, other):
-            # 6.2 contract: identity is path *and* attributes, plus the
+            # 6.1 contract: identity is path *and* attributes, plus the
             # bare-string shortcut Django relies on in ``Media.merge``.
             return (
                 self.__class__ is other.__class__

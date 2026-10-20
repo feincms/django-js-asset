@@ -185,7 +185,7 @@ class _JSONAsset(MediaAsset):
         )
 
     def __eq__(self, other):
-        # Django < 6.2 compares ``path`` only, which would make the equality
+        # Django 5.2 and 6.0 compare ``path`` only, which would make the equality
         # depend on the order of the keys.
         return (
             self.__class__ is other.__class__

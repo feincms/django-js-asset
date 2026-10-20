@@ -132,10 +132,10 @@ each other, against plain path strings, and against Django's native assets when
 what counts as a duplicate are Django's, and Django changed them between
 releases:
 
-* **Django 4.2 - 5.1 and 6.2+:** two assets are equal when both the path *and*
+* **Django 4.2 - 5.1 and 6.1+:** two assets are equal when both the path *and*
   the attributes match, so ``JS("a.js", id="x")`` and
   ``JS("a.js", id="y")`` are distinct and both render.
-* **Django 5.2 - 6.1:** Django compares the **path only**, so those same two
+* **Django 5.2 and 6.0:** Django compares the **path only**, so those same two
   assets de-duplicate to one (whichever wins the merge) -- exactly as Django's
   own ``Script``/``Stylesheet`` behave on those versions.
 

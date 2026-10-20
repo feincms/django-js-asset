@@ -68,8 +68,8 @@ class AssetTest(TestCase):
         ]
 
         # ``JS`` produces a Django ``Script``, so identity follows Django's own
-        # contract: 6.2+ (and the < 5.2 backport) fold attributes into equality
-        # -- the differing third asset stays distinct -> 2. Django 5.2 - 6.1
+        # contract: 6.1+ (and the < 5.2 backport) fold attributes into equality
+        # -- the differing third asset stays distinct -> 2. Django 5.2 and 6.0
         # dedup on the path alone, so all three collapse -> 1.
         attribute_aware = media[0] != media[2]
         self.assertEqual(len(set(media)), 2 if attribute_aware else 1)
