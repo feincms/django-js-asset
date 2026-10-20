@@ -93,7 +93,7 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
 - `ImportMap` is **not** a `MediaAsset`: it is passed as
   `Media(importmap=...)`, never in `js` lists (rendering one there raises a
   `TypeError`, checked on `_js_lists` before `Media.merge` would fail on the
-  unhashable map). It renders itself (`render(attrs=)` with the same conflict
+  unhashable map). That check is a 5.0 migration aid: **remove it in 6.0**. It renders itself (`render(attrs=)` with the same conflict
   check as `MediaAsset.render()`), copies the data it is given and is
   immutable; combine with `|` / `|=`. `update()` was deprecated in 4.2 and has
   been removed. The import maps DEP draft in

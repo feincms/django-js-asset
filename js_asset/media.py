@@ -230,7 +230,8 @@ class Media(forms.Media):
     @property
     def _js(self):
         # Check before ``Media.merge`` runs, which would fail with a less
-        # helpful error since import maps aren't hashable.
+        # helpful error since import maps aren't hashable. A migration aid for
+        # 5.0, remove it in 6.0 (``Media.merge`` still raises a TypeError).
         if any(isinstance(item, ImportMap) for js in self._js_lists for item in js):
             raise TypeError(
                 "Import maps in js lists aren't supported anymore, pass them"
