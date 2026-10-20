@@ -7,7 +7,15 @@ from django.utils.functional import SimpleLazyObject, empty
 from django.utils.html import html_safe
 from django.utils.safestring import mark_safe
 
-from js_asset import CSS, JS, JSON, ImportMap, InlineStyle, Media, Script, Stylesheet
+from js_asset import (
+    JSON,
+    ImportMap,
+    InlineStyle,
+    Media,
+    RemovedInDjangoJsAsset60Warning,
+    Script,
+    Stylesheet,
+)
 
 
 try:  # Django >= 6.1
@@ -59,14 +67,8 @@ JS_ASSETS = [
         '<script src="/static/app.js" nonce="n0nce"></script>',
     ),
     (
-        "JS factory",
-        JS("app.js"),
-        '<script src="/static/app.js"></script>',
-        '<script src="/static/app.js" nonce="n0nce"></script>',
-    ),
-    (
-        "JS factory with attributes",
-        JS("app.js", type="module"),
+        "Script object with attributes",
+        Script("app.js", type="module"),
         '<script src="/static/app.js" type="module"></script>',
         '<script src="/static/app.js" nonce="n0nce" type="module"></script>',
     ),
@@ -108,15 +110,15 @@ CSS_ASSETS = [
         '<link href="/static/app.css" media="all" nonce="n0nce" rel="stylesheet">',
     ),
     (
-        "CSS factory",
-        CSS("app.css", media="all"),
+        "Stylesheet object with media",
+        Stylesheet("app.css", media="all"),
         '<link href="/static/app.css" media="all" rel="stylesheet">',
         '<link href="/static/app.css" media="all" nonce="n0nce" rel="stylesheet">',
     ),
     (
-        # Django's ``Stylesheet`` has no implicit ``media``; unlike the ``CSS``
-        # factory it only emits the attribute when one is passed. The dict key
-        # it is filed under does not add one.
+        # Django's ``Stylesheet`` has no implicit ``media``, it only emits the
+        # attribute when one is passed. The dict key it is filed under does not
+        # add one.
         "Stylesheet object",
         Stylesheet("app.css"),
         '<link href="/static/app.css" rel="stylesheet">',
@@ -178,8 +180,10 @@ class AssetRenderingTest(TestCase):
         # ``_normalize_{js,css}`` would otherwise silently skip. (Excludes
         # html-safe strings, which Django 6.1 itself gets wrong.)
         kwargs = {
-            "css": {"all": ["a.css", CSS("b.css", media="all"), Stylesheet("c.css")]},
-            "js": ["a.js", JS("b.js"), Script("c.js"), JS("d.js", defer=True)],
+            "css": {
+                "all": ["a.css", Stylesheet("b.css", media="all"), Stylesheet("c.css")]
+            },
+            "js": ["a.js", Script("b.js"), Script("c.js"), Script("d.js", defer=True)],
         }
         self.assertEqual(str(Media(**kwargs)), str(DjangoMedia(**kwargs)))
 
@@ -195,7 +199,7 @@ def nonce(value):
 class MediaTest(TestCase):
     def test_nonce_conflicts_with_asset_nonce(self):
         for kwargs in [
-            {"js": [JS("app.js", nonce="own")]},
+            {"js": [Script("app.js", nonce="own")]},
             {"importmap": ImportMap({"a": "/static/a.js"}, nonce="own")},
         ]:
             with self.subTest(kwargs=kwargs):
@@ -209,23 +213,23 @@ class MediaTest(TestCase):
 
     @skipIf(nonce_attr is None, "Django < 6.1 has no built-in CSP support")
     def test_nonce_conflict_matches_django(self):
-        asset = JS("app.js", nonce="own")
+        asset = Script("app.js", nonce="own")
         with self.assertRaisesMessage(ValueError, "has conflicting attributes: nonce"):
             DjangoMedia(js=[asset]).render(attrs={"nonce": "r@nd0m"})
         with self.assertRaisesMessage(ValueError, "has conflicting attributes: nonce"):
             Media(js=[asset]).render(attrs={"nonce": "r@nd0m"})
 
     def test_none_nonce(self):
-        media = Media(nonce=None, js=[JS("app.js")])
+        media = Media(nonce=None, js=[Script("app.js")])
         self.assertEqual(media.render(), APP_JS.format(""))
 
     def test_render_nonce(self):
-        media = Media(nonce="stored", js=[JS("app.js")])
+        media = Media(nonce="stored", js=[Script("app.js")])
         # A passed nonce overrides the stored one.
         self.assertEqual(
             media.render(attrs={"nonce": "passed"}), APP_JS.format(nonce("passed"))
         )
-        with self.assertWarns(DeprecationWarning) as cm:
+        with self.assertWarns(RemovedInDjangoJsAsset60Warning) as cm:
             html = media.render(nonce="n")
         self.assertEqual(html, APP_JS.format(nonce("n")))
         self.assertEqual(cm.filename, __file__)
@@ -236,8 +240,8 @@ class MediaTest(TestCase):
         media = Media(
             nonce="stored",
             importmap=ImportMap({"a": "/static/a.js"}),
-            css={"all": [CSS("app.css", media="all")]},
-            js=[JS("app.js")],
+            css={"all": [Stylesheet("app.css", media="all")]},
+            js=[Script("app.js")],
         )
         self.assertEqual(
             media.render(attrs={"data-x": "1"}),
@@ -251,7 +255,7 @@ class MediaTest(TestCase):
             media.render(attrs={"media": "print"})
 
     def test_adding_keeps_type_nonce_and_assets(self):
-        ours = Media(nonce="n", css={"all": ["a.css"]}, js=[JS("a.js")])
+        ours = Media(nonce="n", css={"all": ["a.css"]}, js=[Script("a.js")])
         plain = DjangoMedia(css={"all": ["b.css"]}, js=["b.js"])
         # Plain ``forms.Media`` would drop our media on the right-hand side.
         for merged in (plain + ours, ours + plain):
@@ -273,7 +277,7 @@ class MediaTest(TestCase):
         class MyMedia(Media):
             pass
 
-        media = MyMedia(js=[JS("app.js")])
+        media = MyMedia(js=[Script("app.js")])
         self.assertIs(type(media + DjangoMedia()), MyMedia)
         self.assertIs(type(DjangoMedia() + media), MyMedia)
         for name in ("css", "js", "importmap"):
@@ -288,17 +292,17 @@ class MediaTest(TestCase):
             3 + Media()
 
     def test_from_media(self):
-        wrapped = Media.from_media(DjangoMedia(js=[JS("app.js")]), nonce="w")
+        wrapped = Media.from_media(DjangoMedia(js=[Script("app.js")]), nonce="w")
         self.assertIsInstance(wrapped, Media)
         self.assertEqual(wrapped.render(), APP_JS.format(nonce("w")))
 
-        media = Media(nonce="n", js=[JS("app.js")])
+        media = Media(nonce="n", js=[Script("app.js")])
         self.assertEqual(Media.from_media(media).nonce, "n")
         self.assertEqual(Media.from_media(media, nonce="").nonce, "")
         self.assertEqual(Media.from_media(DjangoMedia()).nonce, "")
 
     def test_with_nonce_returns_a_copy(self):
-        media = Media(js=[JS("app.js")])
+        media = Media(js=[Script("app.js")])
         request_media = media.with_nonce("xyz")
         self.assertIsInstance(request_media, Media)
         self.assertEqual(request_media.render(), APP_JS.format(nonce("xyz")))
@@ -315,7 +319,7 @@ class MediaTest(TestCase):
         second = Media(
             nonce="n0nce",
             css={"all": [HTML_SAFE_CSS]},
-            js=[HTML_SAFE_JS, JS("b.js")],
+            js=[HTML_SAFE_JS, Script("b.js")],
         )
         self.assertEqual(
             (first + second).render(),
@@ -367,7 +371,7 @@ class LazyNonceTest(TestCase):
         # it says "no nonce" as long as it has not been read yet, so the nonce
         # must be resolved instead of checked for truthiness.
         for media, html in [
-            (Media(js=[JS("app.js")]), APP_JS),
+            (Media(js=[Script("app.js")]), APP_JS),
             (Media(importmap=ImportMap({"a": "/static/a.js"})), IMPORTMAP),
         ]:
             with self.subTest(html=html):
@@ -378,7 +382,7 @@ class LazyNonceTest(TestCase):
 
     def test_lazy_nonce_stored_on_the_media(self):
         html = APP_JS.format(nonce("l@zy"))
-        media = Media(nonce=LazyNonce("l@zy"), js=[JS("app.js")])
+        media = Media(nonce=LazyNonce("l@zy"), js=[Script("app.js")])
         self.assertEqual(media.render(), html)
         # An unread lazy nonce is falsy, which must not make adding media
         # prefer the other side's nonce -- or drop it altogether.
@@ -403,7 +407,7 @@ class LazyNonceTest(TestCase):
         lazy = DjangoLazyNonce()
         html = nonce_attr(
             {"csp_nonce": lazy},
-            Media(importmap=ImportMap({"a": "/static/a.js"}), js=[JS("app.js")]),
+            Media(importmap=ImportMap({"a": "/static/a.js"}), js=[Script("app.js")]),
         )
         self.assertTrue(lazy)
         self.assertEqual(
@@ -422,8 +426,8 @@ class RenderPartsTest(TestCase):
         media = Media(
             nonce="stored",
             importmap=ImportMap({"a": "/static/a.js"}),
-            css={"all": [CSS("app.css", media="all")]},
-            js=[JS("app.js")],
+            css={"all": [Stylesheet("app.css", media="all")]},
+            js=[Script("app.js")],
         )
         for value, attrs in [("stored", None), ("passed", {"nonce": "passed"})]:
             with self.subTest(attrs=attrs):
@@ -456,8 +460,8 @@ class GetItemTest(TestCase):
         media = Media(
             nonce="n0nce",
             importmap=ImportMap({"a": "/static/a.js"}),
-            css={"all": [CSS("app.css", media="all")]},
-            js=[JS("app.js")],
+            css={"all": [Stylesheet("app.css", media="all")]},
+            js=[Script("app.js")],
         )
         for name, html in [
             (
@@ -486,7 +490,7 @@ class GetItemTest(TestCase):
     def test_csp_nonce_attr_on_a_subset(self):
         # What Django's own admin templates do: {% csp_nonce_attr media.js %}.
         lazy = DjangoLazyNonce()
-        media = Media(importmap=ImportMap({"a": "/static/a.js"}), js=[JS("app.js")])
+        media = Media(importmap=ImportMap({"a": "/static/a.js"}), js=[Script("app.js")])
         self.assertEqual(
             nonce_attr({"csp_nonce": lazy}, media["js"]), APP_JS.format(nonce(lazy))
         )
@@ -500,8 +504,8 @@ class ImportMapArgumentTest(TestCase):
     def test_rendered_first(self):
         media = Media(
             importmap=ImportMap({"a": "/static/a.js"}),
-            css={"all": [CSS("app.css", media="all")]},
-            js=[JS("app.js", type="module")],
+            css={"all": [Stylesheet("app.css", media="all")]},
+            js=[Script("app.js", type="module")],
         )
         self.assertEqual(
             media.render(attrs={"nonce": "n"}),
@@ -541,7 +545,7 @@ class ImportMapArgumentTest(TestCase):
         class EditorWidget(forms.Textarea):
             media = Media(
                 importmap=ImportMap({"editor": "editor/index.js"}),
-                js=[JS("editor/init.js", type="module")],
+                js=[Script("editor/init.js", type="module")],
             )
 
         class ArticleForm(forms.Form):

@@ -1,7 +1,12 @@
 from django.forms import Media as DjangoMedia
 from django.test import TestCase
 
-from js_asset.js import ImportMap, MediaAsset, static_lazy
+from js_asset.js import (
+    ImportMap,
+    MediaAsset,
+    RemovedInDjangoJsAsset60Warning,
+    static_lazy,
+)
 from js_asset.media import Media
 
 
@@ -87,7 +92,7 @@ class ImportMapTest(TestCase):
             importmap.render(attrs={"nonce": "N"}),
             f'<script type="importmap" data-x="y" nonce="N">{html}',
         )
-        with self.assertWarns(DeprecationWarning):
+        with self.assertWarns(RemovedInDjangoJsAsset60Warning):
             self.assertEqual(
                 importmap.render(nonce="N"),
                 f'<script type="importmap" data-x="y" nonce="N">{html}',
@@ -131,7 +136,9 @@ class ImportMapTest(TestCase):
             media["js"]
 
     def test_deprecated_full_import_map(self):
-        with self.assertWarnsMessage(DeprecationWarning, "full import map"):
+        with self.assertWarnsMessage(
+            RemovedInDjangoJsAsset60Warning, "full import map"
+        ):
             importmap = ImportMap(
                 {
                     "imports": {"a": "/a.js"},

@@ -1,6 +1,6 @@
-==================================================================
-django-js-asset -- JS, CSS and JSON support for django.forms.Media
-==================================================================
+=============================================================================
+django-js-asset -- Script, Stylesheet and JSON support for django.forms.Media
+=============================================================================
 
 .. image:: https://github.com/feincms/django-js-asset/workflows/Tests/badge.svg
     :target: https://github.com/feincms/django-js-asset
@@ -8,10 +8,10 @@ django-js-asset -- JS, CSS and JSON support for django.forms.Media
 django-js-asset brings Django's object-based media assets to every supported
 Django version and adds what Django doesn't have yet:
 
-* ``JS`` and ``CSS`` produce Django's own `Script and Stylesheet
+* `Script and Stylesheet
   <https://docs.djangoproject.com/en/dev/topics/forms/media/#script-objects>`__
-  objects, backported to Django versions which lack them (``Script`` arrived in
-  5.2, ``Stylesheet`` in 6.1). They will become plain aliases.
+  are Django's own classes where Django has them (``Script`` arrived in 5.2,
+  ``Stylesheet`` in 6.1) and backports otherwise.
 * ``InlineStyle`` and ``JSON`` render ``<style>`` blocks and JSON data blocks.
 * ``ImportMap`` and ``js_asset.Media`` merge the import maps of all media into
   a single ``<script type="importmap">``.
@@ -31,14 +31,14 @@ Assets
 
 .. code-block:: python
 
-    from js_asset import CSS, JS, JSON, InlineStyle
+    from js_asset import JSON, InlineStyle, Script, Stylesheet
 
     forms.Media(js=[
         JSON({"configuration": 42}, id="widget-configuration"),
-        CSS("widget/style.css", media="all"),
+        Stylesheet("widget/style.css", media="all"),
         InlineStyle("p{color:red;}"),
-        JS("widget/script.js", type="module"),
-        JS("widget/data.js", **{"id": "data-script", "data-answer": "42"}),
+        Script("widget/script.js", type="module"),
+        Script("widget/data.js", **{"id": "data-script", "data-answer": "42"}),
     ])
 
 This renders (via ``{{ media }}`` or ``{{ media.js }}``):
@@ -51,10 +51,10 @@ This renders (via ``{{ media }}`` or ``{{ media.js }}``):
     <script src="/static/widget/script.js" type="module"></script>
     <script src="/static/widget/data.js" data-answer="42" id="data-script"></script>
 
-``JS(src, **attributes)`` and ``CSS(href, **attributes)`` take the same
-arguments as Django's ``Script`` and ``Stylesheet``. Use ``**{...}`` for
-attributes which aren't valid Python identifiers, such as ``data-*``
-attributes, which are a CSP-compatible way to pass data to a script
+Import ``Script`` and ``Stylesheet`` from ``django.forms`` once your project
+only supports Django versions which have them. Use ``**{...}`` for attributes
+which aren't valid Python identifiers, such as ``data-*`` attributes, which
+are a CSP-compatible way to pass data to a script
 (``document.querySelector("#data-script").dataset.answer``). Attributes are
 escaped.
 
@@ -63,34 +63,51 @@ needs a dictionary keyed by medium. A stylesheet in ``js`` is only
 de-duplicated against that list though, ``forms.Media`` keeps ``css`` in a
 separate slot.
 
-Deprecated forms, which still work: an attributes dict (``JS("a.js", {...})``,
-``attrs={...}``), a positional media (``CSS("a.css", "print")``),
-``CSS(..., inline=True)`` (use ``InlineStyle``) and ``CSS(path)`` without
-``media``, which still adds ``media="all"`` but will stop doing so like
-``Stylesheet``. Pass ``media="all"`` explicitly to keep the attribute.
-
 Inline CSS is rendered verbatim -- a ``<style>`` element is raw text, so HTML
 escapes would not be decoded inside it and would break the CSS instead. For the
 same reason the CSS must not contain ``</style``, which would end the element
 early; passing such CSS raises a ``ValueError``.
 
+``JS`` and ``CSS`` are deprecated and will be removed in 6.0. They produce
+``Script`` and ``Stylesheet`` objects, so replacing them changes nothing
+except for one detail: ``CSS(href)`` adds ``media="all"`` when no media is
+given, ``Stylesheet(href)`` doesn't. Replace it with
+``Stylesheet(href, media="all")``, see below. Other deprecated forms, which
+still work until then: an attributes dict (``JS("a.js", {...})``,
+``attrs={...}``), a positional media (``CSS("a.css", "print")``) and
+``CSS(..., inline=True)`` (use ``InlineStyle``). Deprecations raise a
+``js_asset.RemovedInDjangoJsAsset60Warning``, a ``DeprecationWarning``
+subclass, so you can turn exactly these into errors, e.g. in your test
+settings:
+
+.. code-block:: python
+
+    import warnings
+
+    from js_asset import RemovedInDjangoJsAsset60Warning
+
+    warnings.simplefilter("error", RemovedInDjangoJsAsset60Warning)
+
 
 Deduplication
 =============
 
-Since ``JS`` and ``CSS`` produce Django's own objects, they de-duplicate
-against each other, against plain path strings and against Django's native
-assets when ``forms.Media`` merges the media of several forms and widgets. The
-rules are Django's, which changed between releases:
+``Script`` and ``Stylesheet`` de-duplicate against each other, against plain
+path strings and against Django's native assets when ``forms.Media`` merges
+the media of several forms and widgets. The rules are Django's, which changed
+between releases:
 
 * **Django 4.2 - 5.1 and 6.1+:** two assets are equal when both the path *and*
-  the attributes match, so ``JS("a.js", id="x")`` and ``JS("a.js", id="y")``
-  are distinct and both render.
+  the attributes match, so ``Script("a.js", id="x")`` and
+  ``Script("a.js", id="y")`` are distinct and both render.
 * **Django 5.2 and 6.0:** Django compares the **path only**, so those two
   de-duplicate to one (whichever wins the merge).
 
-A file referenced both as a bare string and via ``JS``/``CSS`` always
-de-duplicates.
+A bare path string is equal to a ``Script`` without attributes, and to a
+``Stylesheet`` whose ``media`` is the key of the ``css`` dictionary it is
+listed under. On Django 6.1+, ``"a.css"`` in ``css={"all": [...]}`` and
+``Stylesheet("a.css")`` without ``media`` are distinct and render twice; pass
+``media="all"`` to avoid that.
 
 
 Import maps
@@ -112,16 +129,16 @@ all media objects added together are combined into a single
 
 .. code-block:: python
 
-    from js_asset import ImportMap, JS, Media
+    from js_asset import ImportMap, Media, Script
 
     media = Media(
         importmap=ImportMap({"my-library": "my-library.js"}),
-        js=[JS("code.js", type="module")],
+        js=[Script("code.js", type="module")],
     )
 
 ``ImportMap`` takes the ``imports`` of the import map, and ``scopes=`` and
 ``integrity=`` keyword arguments for the other parts (passing a full import map
-is deprecated). Paths are resolved when rendering, like ``JS`` paths: relative
+is deprecated). Paths are resolved when rendering, like ``Script`` paths: relative
 paths are passed through ``static()``, so defining import maps at module level
 works with ``ManifestStaticFilesStorage``. URLs with a scheme (e.g.
 ``https:``) and paths starting with ``/`` are used as they are. Prefix mappings
@@ -164,7 +181,7 @@ import maps, so widgets and forms can't use ``class Media`` for them. Define
     class EditorWidget(forms.Textarea):
         media = Media(
             importmap=ImportMap({"editor": "editor/index.js"}),
-            js=[JS("editor/init.js", type="module")],
+            js=[Script("editor/init.js", type="module")],
         )
 
 Import maps are subject to ``script-src``, see `CSP nonces`_ for per-request
@@ -189,12 +206,12 @@ the context:
 .. code-block:: python
 
     from django.shortcuts import render
-    from js_asset import ImportMap, JS, Media
+    from js_asset import ImportMap, Media, Script
 
     def dashboard(request):
         media = Media(
             importmap=ImportMap({"chart": "chart/index.js"}),
-            js=[JS("dashboard.js", type="module")],
+            js=[Script("dashboard.js", type="module")],
         )
         return render(request, "dashboard.html", {"media": media})
 
@@ -212,7 +229,7 @@ work, because ``forms.Media`` copies from a media *definition*, not an
         form = MyForm()
         page = Media(
             importmap=ImportMap({"editor": "editor/index.js"}),
-            js=[JS("editor/init.js", type="module")],
+            js=[Script("editor/init.js", type="module")],
         )
         media = page + form.media            # or: Media.from_media(form.media)
         return render(request, "edit.html", {"form": form, "media": media})
@@ -239,12 +256,12 @@ map returns a ``js_asset.Media``:
 
     from django.contrib import admin
     from django import forms
-    from js_asset import ImportMap, JS, Media
+    from js_asset import ImportMap, Media, Script
 
     class EditorWidget(forms.Textarea):
         media = Media(
             importmap=ImportMap({"editor": "editor/index.js"}),
-            js=[JS("editor/init.js", type="module")],
+            js=[Script("editor/init.js", type="module")],
         )
 
     class ArticleForm(forms.ModelForm):

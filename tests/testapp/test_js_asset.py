@@ -1,3 +1,5 @@
+import warnings
+
 from django.forms import Media
 from django.test import TestCase
 
@@ -7,6 +9,7 @@ from js_asset.js import (
     JSON,
     InlineStyle,
     MediaAsset,
+    RemovedInDjangoJsAsset60Warning,
     Script,
     Stylesheet,
 )
@@ -16,19 +19,19 @@ class AssetTest(TestCase):
     def test_render(self):
         for asset, html in [
             (
-                JS("app.js", **{"id": "s", "data-the-answer": 42}),
+                Script("app.js", **{"id": "s", "data-the-answer": 42}),
                 '<script src="/static/app.js" data-the-answer="42" id="s"></script>',
             ),
             (
-                JS("https://cdn.example.org/a.js"),
+                Script("https://cdn.example.org/a.js"),
                 '<script src="https://cdn.example.org/a.js"></script>',
             ),
             (
-                JS("app.js", bool=True, cool=False),
+                Script("app.js", bool=True, cool=False),
                 '<script src="/static/app.js" bool></script>',
             ),
             (
-                CSS("app.css", media="screen", crossorigin="anonymous"),
+                Stylesheet("app.css", media="screen", crossorigin="anonymous"),
                 (
                     '<link href="/static/app.css" crossorigin="anonymous"'
                     ' media="screen" rel="stylesheet">'
@@ -55,8 +58,8 @@ class AssetTest(TestCase):
                 self.assertEqual(str(asset), html)
 
     def test_asset_merging(self):
-        media1 = Media(js=["thing.js", JS("other.js"), "some.js"])
-        media2 = Media(js=["thing.js", JS("other.js"), "some.js"])
+        media1 = Media(js=["thing.js", Script("other.js"), "some.js"])
+        media2 = Media(js=["thing.js", Script("other.js"), "some.js"])
         media = media1 + media2
         self.assertEqual(len(media._js), 3)
         self.assertEqual(media._js[0], "thing.js")
@@ -64,9 +67,9 @@ class AssetTest(TestCase):
 
     def test_set(self):
         media = [
-            JS("app/asset.js", **{"id": "asset-script", "data-the-answer": 42}),
-            JS("app/asset.js", **{"id": "asset-script", "data-the-answer": 42}),
-            JS("app/asset.js", **{"id": "asset-script", "data-the-answer": 43}),
+            Script("app/asset.js", **{"id": "asset-script", "data-the-answer": 42}),
+            Script("app/asset.js", **{"id": "asset-script", "data-the-answer": 42}),
+            Script("app/asset.js", **{"id": "asset-script", "data-the-answer": 43}),
         ]
 
         # ``JS`` produces a Django ``Script``, so identity follows Django's own
@@ -76,10 +79,15 @@ class AssetTest(TestCase):
         attribute_aware = media[0] != media[2]
         self.assertEqual(len(set(media)), 2 if attribute_aware else 1)
 
-    def test_deprecated_signatures(self):
-        # ``JS``/``CSS`` will become aliases of ``Script``/``Stylesheet``. Until
-        # then, the old forms keep working and render the same as before.
+    def test_deprecated_factories(self):
+        # ``JS``/``CSS`` are removed in 6.0. Until then, all their forms keep
+        # working and render the same as before, with exactly one warning.
         cases = [
+            (lambda: JS("app.js"), '<script src="/static/app.js"></script>'),
+            (
+                lambda: JS("app.js", type="module"),
+                '<script src="/static/app.js" type="module"></script>',
+            ),
             (
                 lambda: JS("app.js", {"id": "x"}),
                 '<script src="/static/app.js" id="x"></script>',
@@ -91,6 +99,10 @@ class AssetTest(TestCase):
             (
                 lambda: CSS("app.css"),
                 '<link href="/static/app.css" media="all" rel="stylesheet">',
+            ),
+            (
+                lambda: CSS("app.css", media="screen"),
+                '<link href="/static/app.css" media="screen" rel="stylesheet">',
             ),
             (
                 lambda: CSS("app.css", "print"),
@@ -111,10 +123,31 @@ class AssetTest(TestCase):
         ]
         for produce, html in cases:
             with self.subTest(html=html):
-                with self.assertWarns(DeprecationWarning) as cm:
+                with warnings.catch_warnings(record=True) as caught:
+                    warnings.simplefilter("always")
                     asset = produce()
                 self.assertEqual(str(asset), html)
-                self.assertEqual(cm.filename, __file__)
+                self.assertEqual(
+                    [(w.category, w.filename) for w in caught],
+                    [(RemovedInDjangoJsAsset60Warning, __file__)],
+                )
+
+    def test_deprecated_factories_dedup_like_paths(self):
+        # The implicit ``media="all"`` of ``CSS()`` is what makes it equal to
+        # the ``Stylesheet`` Django >= 6.1 wraps ``"a.css"`` into.
+        with self.assertWarns(RemovedInDjangoJsAsset60Warning):
+            css = CSS("a.css")
+        self.assertEqual(
+            str(Media(css={"all": ["a.css"]}) + Media(css={"all": [css]})),
+            '<link href="/static/a.css" media="all" rel="stylesheet">',
+        )
+        self.assertEqual(
+            str(
+                Media(css={"all": ["a.css"]})
+                + Media(css={"all": [Stylesheet("a.css", media="all")]})
+            ),
+            '<link href="/static/a.css" media="all" rel="stylesheet">',
+        )
 
     def test_inline_css_cannot_close_the_style_element(self):
         # The one sequence which would let the CSS escape its element.
@@ -124,18 +157,26 @@ class AssetTest(TestCase):
 
     def test_isinstance_both_ways(self):
         # ``JS``/``CSS`` produce Django's assets, and Django's assets count as
-        # ``JS``/``CSS``, so checks against either name keep working.
-        self.assertIs(type(JS("a.js")), Script)
-        self.assertIs(type(CSS("a.css", media="all")), Stylesheet)
-        self.assertIsInstance(Script("a.js"), JS)
-        self.assertIsInstance(Stylesheet("a.css"), CSS)
-        self.assertIsInstance(InlineStyle("a{}"), CSS)
-        self.assertTrue(issubclass(Script, JS))
-        self.assertTrue(issubclass(Stylesheet, CSS))
-        self.assertFalse(issubclass(Script, CSS))
-        self.assertFalse(issubclass(Stylesheet, JS))
-        self.assertNotIsInstance(JSON({}), JS)
-        self.assertNotIsInstance("a.js", JS)
+        # ``JS``/``CSS``, so checks against either name keep working, with a
+        # warning.
+        with self.assertWarns(RemovedInDjangoJsAsset60Warning):
+            self.assertIs(type(JS("a.js")), Script)
+        with self.assertWarns(RemovedInDjangoJsAsset60Warning):
+            self.assertIs(type(CSS("a.css", media="all")), Stylesheet)
+        for check, expected in [
+            (lambda: isinstance(Script("a.js"), JS), True),
+            (lambda: isinstance(Stylesheet("a.css"), CSS), True),
+            (lambda: isinstance(InlineStyle("a{}"), CSS), True),
+            (lambda: issubclass(Script, JS), True),
+            (lambda: issubclass(Stylesheet, CSS), True),
+            (lambda: issubclass(Script, CSS), False),
+            (lambda: issubclass(Stylesheet, JS), False),
+            (lambda: isinstance(JSON({}), JS), False),
+            (lambda: isinstance("a.js", JS), False),
+        ]:
+            with self.assertWarns(RemovedInDjangoJsAsset60Warning) as cm:
+                self.assertIs(check(), expected)
+            self.assertEqual(cm.filename, __file__)
 
     def test_json(self):
         data = {"hello": "world"}
@@ -148,7 +189,7 @@ class AssetTest(TestCase):
             '<script id="hello" nonce="N" type="application/json">'
             '{"hello": "world"}</script>',
         )
-        with self.assertWarns(DeprecationWarning):
+        with self.assertWarns(RemovedInDjangoJsAsset60Warning):
             asset.render(nonce="N")
         with self.assertRaisesMessage(ValueError, "conflicting attributes: type"):
             asset.render(attrs={"type": "text/plain"})

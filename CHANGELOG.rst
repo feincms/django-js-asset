@@ -7,11 +7,26 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
-- ``JS`` and ``CSS`` accept the attributes as keyword arguments like Django's
-  ``Script`` and ``Stylesheet``, which they will become aliases of. Deprecated
-  attribute dicts (``JS("a.js", {...})``, ``attrs=...``), a positional
-  ``media``, ``CSS(..., inline=True)`` (use ``InlineStyle``) and the implicit
-  ``media="all"`` of ``CSS()``; pass ``media="all"`` to keep the attribute.
+Everything deprecated in 5.0 keeps working until 6.0. The
+backwards-incompatible changes are the ones from the pre-releases below, and
+``InlineStyle`` no longer adding ``media="all"``, which browsers treat the
+same.
+
+- Deprecated ``JS`` and ``CSS``, they will be removed in 6.0. Use ``Script``
+  and ``Stylesheet`` instead, from ``django.forms`` where Django has them
+  (5.2 and 6.1) and from ``js_asset`` otherwise. ``JS`` and ``CSS`` already
+  produce those objects and accept the attributes as keyword arguments like
+  them. Their older forms, attribute dicts (``JS("a.js", {...})``,
+  ``attrs=...``), a positional ``media`` and ``CSS(..., inline=True)`` (use
+  ``InlineStyle``), keep working until 6.0 as well.
+- Replace ``CSS(href)`` with ``Stylesheet(href, media="all")``: ``CSS()`` adds
+  ``media="all"`` when no media is given, ``Stylesheet()`` doesn't. On Django
+  6.1 and newer, a stylesheet is only de-duplicated against ``"a.css"`` in
+  ``css={"all": [...]}`` when its media is ``"all"``, otherwise it is rendered
+  twice.
+- Added ``RemovedInDjangoJsAsset60Warning``, a ``DeprecationWarning`` subclass
+  which all deprecations use, so that projects can turn exactly these into
+  errors.
 - ``InlineStyle`` doesn't add ``media="all"`` anymore, like ``Stylesheet``.
   That's the default for elements without a ``media`` attribute anyway.
 - Deprecated ``Media.render(nonce=...)``, use ``render(attrs={"nonce": ...})``

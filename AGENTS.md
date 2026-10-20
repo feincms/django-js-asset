@@ -1,7 +1,7 @@
 # django-js-asset — agent notes
 
-`JS`, `CSS`, `JSON` support for `django.forms.Media`, plus importmap and CSP
-nonce support.
+`Script`, `Stylesheet`, `JSON` support for `django.forms.Media` (backported
+where Django lacks them), plus importmap and CSP nonce support.
 
 ## Running tests
 
@@ -18,11 +18,18 @@ The matrix lives in `tox.ini` (`tests/manage.py test testapp`). Only use env
 names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
 `deps` entry, so tox silently installs whatever Django the extras pull in.
 
+## Deprecations
+
+All deprecations use `RemovedInDjangoJsAsset60Warning` (a
+`DeprecationWarning` subclass, exported from `js_asset`), and everything
+deprecated in 5.x is removed in 6.0. Check `cm.filename == __file__` in tests
+so the stacklevel points at the caller.
+
 ## Compatibility (hard constraint)
 
 - Python `>=3.10`, Django `>=4.2`. **Django 6.2+ is NOT an acceptable floor.**
-- `JS`/`CSS` *produce* Django's own `Script`/`Stylesheet` (see Layout). Where
-  Django lacks them they are **backported** in `js_asset/_compat.py`, so the
+- `Script`/`Stylesheet` are Django's own (the deprecated `JS`/`CSS` produce
+  them, see Layout). Where Django lacks them they are **backported** in `js_asset/_compat.py`, so the
   4.2 floor holds — we provide the machinery, we don't *depend* on Django
   having it. Availability in real Django: `Script` (5.2+), `Stylesheet` +
   `MediaAsset.render(attrs=)` + attribute-aware `__eq__`/`__hash__` (6.1+,
@@ -71,11 +78,14 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   make them subclasses**: Django 6.1+'s `MediaAsset.__eq__` checks
   `self.__class__ is other.__class__`, so a `JS(Script)` would not equal the
   `Script` Django wraps bare strings into, and the file would render twice.
-  Goal: minimal delta to Django, `JS = Script` / `CSS = Stylesheet` in a later
-  major. They take Django's signature (`JS(src, **attrs)`,
-  `CSS(href, **attrs)`); the old forms (attrs dict, positional media,
-  `inline=True`, implicit `media="all"`) are **deprecated, not removed** —
-  django-ckeditor, django-mptt etc. depend on them. `JSON` has no
+  `JS` and `CSS` are **deprecated as a whole** and removed in 6.0 (not
+  aliased): every call and every `isinstance`/`issubclass` check warns. All
+  their forms (attrs dict, positional media, `inline=True`, implicit
+  `media="all"`) keep working until then; 5.0 final removes nothing beyond
+  the 5.0a1/a2 changes. The implicit `media="all"` matters: Django >= 6.1
+  wraps `"a.css"` in `css={"all": [...]}` into `Stylesheet(..., media="all")`,
+  and attribute-aware equality means a `Stylesheet` without `media` renders
+  a second time. Plan and downstream status: feincms/django-js-asset#44. `JSON` has no
   Django counterpart; it is a `MediaAsset` subclass whose `path` is the
   escaped JSON (like `InlineStyle`) and which defines its own
   `render(*, attrs=None)` (Django's lacks `attrs=` on 5.2/6.0; `nonce=` is
