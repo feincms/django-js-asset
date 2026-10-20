@@ -1,3 +1,4 @@
+import datetime as dt
 import re
 from pathlib import Path
 
@@ -11,7 +12,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 project = "django-js-asset"
-copyright = "2017 - {dt.date.today().year} Feinheit AG"
+copyright = f"2017 - {dt.date.today().year} Feinheit AG"
 
 # Read the version like hatch does, importing js_asset would require Django.
 version = re.search(
