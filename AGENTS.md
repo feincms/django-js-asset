@@ -32,7 +32,7 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   the tag from `element_template` + `flatatt`, which works on every version.
 - Cross-version gotcha: Django >= 6.1 wraps bare js/css path strings into
   `Script`/`Stylesheet` in `Media._js`/`._css`; older Django keeps raw strings.
-  `media.py:_render_{js,css}` wrap any leftover strings by running the result
+  `media.py:render_{js,css}` wrap any leftover strings by running the result
   through our `_normalize_{js,css}` again, so
   `_render_asset` always sees a `MediaAsset` (or an opaque `__html__` asset).
 - **Never test an asset with `isinstance(item, str)`.** `SafeString` is a `str`
@@ -41,7 +41,7 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
   percent-encoded. The predicate is `hasattr(item, "__html__")`; only bare
   paths get wrapped. Django made exactly this mistake in 6.1 (ticket #37262,
   fixed on its 6.1.x branch for 6.1.1), and we had it independently in
-  `_render_{js,css}`.
+  `render_{js,css}`.
 - Because Django 6.1 mangles such strings in `forms.Media.__init__` itself,
   `media.py` also overrides `_normalize_{js,css}` with the `__html__`
   predicate — those hooks are called through `self`, so a subclass can fix

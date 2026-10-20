@@ -53,7 +53,7 @@ class Media(forms.Media):
 
     # ``forms.Media.__init__`` calls these through ``self`` on Django >= 6.1,
     # so a subclass can override them. Older versions keep js/css entries as
-    # given, so ``_render_{js,css}`` call them too.
+    # given, so ``render_{js,css}`` call them too.
     #
     # Django 6.1 normalizes with ``isinstance(path, str)``, which swallows
     # html-safe strings: a ``SafeString`` such as
@@ -157,33 +157,43 @@ class Media(forms.Media):
                 stacklevel=2,
             )
             attrs = {"nonce": nonce} | (attrs or {})
-        attrs = self._resolve_attrs(attrs)
         return mark_safe(
             "\n".join(
                 filter(
                     None,
                     [
-                        *self._render_importmap(attrs),
-                        *self._render_css(attrs),
-                        *self._render_js(attrs),
+                        *self.render_importmap(attrs=attrs),
+                        *self.render_css(attrs=attrs),
+                        *self.render_js(attrs=attrs),
                     ],
                 )
             )
         )
 
+    # ``render_{css,js}`` are part of ``forms.Media``'s public API (and are what
+    # Django's own ``render()`` calls), so they have to apply the nonce as well
+    # -- otherwise anything rendering the media through them silently loses it.
+
     def render_importmap(self, *, attrs=None):
-        return self._render_importmap(self._resolve_attrs(attrs))
+        if self._importmap is None:
+            return []
+        return [self._importmap.render(attrs=self._resolve_attrs(attrs))]
 
     def render_css(self, *, attrs=None):
-        return self._render_css(self._resolve_attrs(attrs))
+        attrs = self._resolve_attrs(attrs)
+        css = self._normalize_css(self._css)
+        return [
+            self._render_asset(asset, attrs)
+            for medium in sorted(css)
+            for asset in css[medium]
+        ]
 
     def render_js(self, *, attrs=None):
-        # ``render_{css,js}`` are part of ``forms.Media``'s public API (and are
-        # what Django's own ``render()`` calls), so they have to apply the nonce
-        # as well -- otherwise anything rendering the media through them
-        # silently loses it. The ``attrs`` keyword only
-        # exists on Django >= 6.1; accepting it keeps the signature compatible.
-        return self._render_js(self._resolve_attrs(attrs))
+        attrs = self._resolve_attrs(attrs)
+        # Django < 6.1 keeps bare paths as strings, so wrap them here as well.
+        return [
+            self._render_asset(asset, attrs) for asset in self._normalize_js(self._js)
+        ]
 
     def _resolve_attrs(self, attrs):
         # ``attrs`` are added to every tag, like Django >= 6.1 does. Its
@@ -218,11 +228,6 @@ class Media(forms.Media):
             )
         return nonce
 
-    def _render_importmap(self, attrs):
-        if self._importmap is None:
-            return []
-        return [self._importmap.render(attrs=attrs)]
-
     @property
     def _js(self):
         # Check before ``Media.merge`` runs, which would fail with a less
@@ -234,20 +239,6 @@ class Media(forms.Media):
                 " as Media(importmap=...) instead."
             )
         return super()._js
-
-    def _render_js(self, attrs):
-        # Django < 6.1 keeps bare paths as strings, so wrap them here as well.
-        return [
-            self._render_asset(asset, attrs) for asset in self._normalize_js(self._js)
-        ]
-
-    def _render_css(self, attrs):
-        css = self._normalize_css(self._css)
-        return [
-            self._render_asset(asset, attrs)
-            for medium in sorted(css)
-            for asset in css[medium]
-        ]
 
     @staticmethod
     def _render_asset(asset, attrs):

@@ -49,7 +49,7 @@ HTML_SAFE_CSS = mark_safe(
 #
 # One row per kind of asset a ``Media`` can carry. Add a row whenever a new
 # asset kind appears -- this is the guard against a rendering branch (such as
-# the "is it a bare path?" test in ``Media._render_js``/``._render_css``)
+# the "is it a bare path?" test in ``Media.render_js``/``.render_css``)
 # quietly mishandling one of them.
 JS_ASSETS = [
     (
