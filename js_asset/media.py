@@ -31,8 +31,6 @@ class Media(forms.Media):
     * It holds an import map (``importmap=``) and merges the import maps of
       media added together. The result is a single ``<script type="importmap">``
       tag, rendered before any other script.
-      This avoids the need for a global importmap which is always the same
-      regardless of the assets actually required by the current code path.
     * It applies a (request-scoped) CSP ``nonce`` to the rendered tags.
 
     Because it implements both ``__add__`` and ``__radd__`` it preserves its
