@@ -109,9 +109,7 @@ class Media(forms.Media):
         nonce = getattr(first, "nonce", "")
         if not _has_nonce(nonce):
             nonce = getattr(second, "nonce", "")
-        combined = type(self)(nonce=nonce)
-        combined._css_lists = first._css_lists[:]
-        combined._js_lists = first._js_lists[:]
+        combined = self.from_media(first, nonce=nonce)
         for item in second._css_lists:
             if item and item not in combined._css_lists:
                 combined._css_lists.append(item)
@@ -120,7 +118,7 @@ class Media(forms.Media):
                 combined._js_lists.append(item)
         # Import maps are merged right away, so the media added later wins.
         combined._importmap = _merge(
-            getattr(first, "_importmap", None), getattr(second, "_importmap", None)
+            combined._importmap, getattr(second, "_importmap", None)
         )
         return combined
 
