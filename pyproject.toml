@@ -49,7 +49,6 @@ build.targets.wheel.packages = [
 ]
 
 [tool.ruff]
-target-version = "py38"
 fix = true
 show-fixes = true
 lint.extend-select = [
