@@ -111,16 +111,12 @@ class Media(forms.Media):
         nonce = getattr(first, "nonce", "")
         if not _has_nonce(nonce):
             nonce = getattr(second, "nonce", "")
-        combined = self.from_media(first, nonce=nonce)
-        for item in second._css_lists:
-            if item and item not in combined._css_lists:
-                combined._css_lists.append(item)
-        for item in second._js_lists:
-            if item and item not in combined._js_lists:
-                combined._js_lists.append(item)
+        # Django's ``__add__`` combines the asset lists, but returns a plain
+        # ``forms.Media``.
+        combined = self.from_media(forms.Media.__add__(first, second), nonce=nonce)
         # Import maps are merged right away, so the media added later wins.
         combined._importmap = _merge(
-            combined._importmap, getattr(second, "_importmap", None)
+            getattr(first, "_importmap", None), getattr(second, "_importmap", None)
         )
         return combined
 
