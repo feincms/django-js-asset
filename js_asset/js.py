@@ -94,22 +94,68 @@ class _ProducesAsset(type):
         return issubclass(subclass, cls._produces)
 
 
+def _deprecated(message, stacklevel=4):
+    # Called from ``_produce``, which is called from ``_ProducesAsset.__call__``.
+    warnings.warn(message, DeprecationWarning, stacklevel=stacklevel)
+
+
+def _legacy_attrs(name, args, attributes):
+    # ``JS``/``CSS`` will become aliases of ``Script``/``Stylesheet``, which
+    # take the attributes as keyword arguments.
+    if len(args) > 1:
+        raise TypeError(f"{name}() takes at most one attributes dict.")
+    attrs = attributes.pop("attrs", None)
+    if args:
+        attrs = args[0]
+    if args or attrs is not None:
+        _deprecated(
+            f"Passing an attributes dict to {name}() is deprecated, pass the"
+            f' attributes as keyword arguments instead: {name}("...", **attrs).',
+            stacklevel=5,
+        )
+    return {**(attrs or {}), **attributes}
+
+
 class JS(metaclass=_ProducesAsset):
+    """
+    Produces a :class:`Script`. ``JS(src, **attributes)`` takes the same
+    arguments; the ``JS(src, attrs)`` form is deprecated.
+    """
+
     _produces = Script
 
     @staticmethod
-    def _produce(src, attrs=None):
-        return Script(src, **(attrs or {}))
+    def _produce(src, *args, **attributes):
+        return Script(src, **_legacy_attrs("JS", args, attributes))
 
 
 class CSS(metaclass=_ProducesAsset):
+    """
+    Produces a :class:`Stylesheet`. ``CSS(href, **attributes)`` takes the same
+    arguments; positional ``media``, ``attrs=``, ``inline=True`` (use
+    :class:`InlineStyle`) and the implicit ``media="all"`` are deprecated.
+    """
+
     _produces = (Stylesheet, InlineStyle)
 
     @staticmethod
-    def _produce(src, media="all", *, inline=False, attrs=None):
+    def _produce(href, *args, inline=False, **attributes):
+        if args:
+            _deprecated(
+                'Passing media positionally to CSS() is deprecated, use media="..."'
+            )
+            attributes["media"], *args = args
+        attributes = _legacy_attrs("CSS", args, attributes)
         if inline:
-            return InlineStyle(src, media=media, **(attrs or {}))
-        return Stylesheet(src, media=media, **(attrs or {}))
+            _deprecated("CSS(..., inline=True) is deprecated, use InlineStyle(...).")
+            return InlineStyle(href, **attributes)
+        if "media" not in attributes:
+            _deprecated(
+                'CSS() will stop adding media="all" like Stylesheet(), pass'
+                ' media="all" explicitly to keep the attribute.'
+            )
+            attributes["media"] = "all"
+        return Stylesheet(href, **attributes)
 
 
 class _JSONAsset(MediaAsset):

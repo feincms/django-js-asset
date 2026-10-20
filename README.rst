@@ -36,7 +36,7 @@ injection.):
     from js_asset import JS
 
     forms.Media(js=[
-        JS("asset.js", {
+        JS("asset.js", **{
             "id": "asset-script",
             "data-answer": "42",
         }),
@@ -77,13 +77,13 @@ So, you can add everything at once:
 
 .. code-block:: python
 
-    from js_asset import CSS, JS, JSON
+    from js_asset import CSS, JS, JSON, InlineStyle
 
     forms.Media(js=[
         JSON({"configuration": 42}, id="widget-configuration"),
-        CSS("widget/style.css"),
-        CSS("p{color:red;}", inline=True),
-        JS("widget/script.js", {"type": "module"}),
+        CSS("widget/style.css", media="all"),
+        InlineStyle("p{color:red;}"),
+        JS("widget/script.js", type="module"),
     ])
 
 This produces:
@@ -95,9 +95,15 @@ This produces:
     <style media="all">p{color:red;}</style>
     <script src="/static/widget/script.js" type="module"></script>
 
-``CSS(path, media="all", *, inline=False, attrs=None)`` accepts additional
-attributes too, e.g. ``CSS("widget/style.css", attrs={"crossorigin":
-"anonymous"})``.
+``JS(src, **attributes)`` and ``CSS(href, **attributes)`` take the same
+arguments as Django's ``Script`` and ``Stylesheet``, which they will become
+aliases of, e.g. ``CSS("widget/style.css", crossorigin="anonymous")``. Use
+``**{...}`` for attributes which aren't valid Python identifiers. The older
+forms are deprecated: an attributes dict (``JS("a.js", {...})``,
+``attrs={...}``), ``CSS(path, "print")`` with a positional media,
+``CSS(..., inline=True)`` (use ``InlineStyle``) and ``CSS(path)`` without
+``media``, which still adds ``media="all"`` but will stop doing so like
+``Stylesheet``. Pass ``media="all"`` explicitly to keep the attribute.
 
 Inline CSS is rendered verbatim -- a ``<style>`` element is raw text, so HTML
 escapes would not be decoded inside it and would break the CSS instead. For the
@@ -127,8 +133,8 @@ what counts as a duplicate are Django's, and Django changed them between
 releases:
 
 * **Django 4.2 - 5.1 and 6.2+:** two assets are equal when both the path *and*
-  the attributes match, so ``JS("a.js", {"id": "x"})`` and
-  ``JS("a.js", {"id": "y"})`` are distinct and both render.
+  the attributes match, so ``JS("a.js", id="x")`` and
+  ``JS("a.js", id="y")`` are distinct and both render.
 * **Django 5.2 - 6.1:** Django compares the **path only**, so those same two
   assets de-duplicate to one (whichever wins the merge) -- exactly as Django's
   own ``Script``/``Stylesheet`` behave on those versions.
@@ -162,7 +168,7 @@ other script:
 
     media = Media(
         importmap=ImportMap({"my-library": "my-library.js"}),
-        js=[JS("code.js", {"type": "module"})],
+        js=[JS("code.js", type="module")],
     )
 
 ``ImportMap`` takes the ``imports`` of the import map, and ``scopes=`` and
@@ -216,7 +222,7 @@ doesn't include it.
        class EditorWidget(forms.Textarea):
            media = Media(
                importmap=ImportMap({"editor": "editor/index.js"}),
-               js=[JS("editor/init.js", {"type": "module"})],
+               js=[JS("editor/init.js", type="module")],
            )
 
 See `CSP nonces`_ below for per-request nonces.
@@ -252,7 +258,7 @@ the context:
     def dashboard(request):
         media = Media(
             importmap=ImportMap({"chart": "chart/index.js"}),
-            js=[JS("dashboard.js", {"type": "module"})],
+            js=[JS("dashboard.js", type="module")],
         )
         return render(request, "dashboard.html", {"media": media})
 
@@ -270,7 +276,7 @@ work, because ``forms.Media`` copies from a media *definition*, not an
         form = MyForm()
         page = Media(
             importmap=ImportMap({"editor": "editor/index.js"}),
-            js=[JS("editor/init.js", {"type": "module"})],
+            js=[JS("editor/init.js", type="module")],
         )
         media = page + form.media            # or: Media.from_media(form.media)
         return render(request, "edit.html", {"form": form, "media": media})
@@ -302,7 +308,7 @@ map returns a ``js_asset.Media``:
     class EditorWidget(forms.Textarea):
         media = Media(
             importmap=ImportMap({"editor": "editor/index.js"}),
-            js=[JS("editor/init.js", {"type": "module"})],
+            js=[JS("editor/init.js", type="module")],
         )
 
     class ArticleForm(forms.ModelForm):

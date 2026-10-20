@@ -18,8 +18,8 @@ class AssetTest(TestCase):
             css={"print": ["app/print.css"]},
             js=[
                 "app/test.js",
-                JS("app/asset.js", {"id": "asset-script", "data-the-answer": 42}),
-                JS("app/asset-without.js", {}),
+                JS("app/asset.js", **{"id": "asset-script", "data-the-answer": 42}),
+                JS("app/asset-without.js"),
             ],
         )
         html = str(media)
@@ -62,9 +62,9 @@ class AssetTest(TestCase):
 
     def test_set(self):
         media = [
-            JS("app/asset.js", {"id": "asset-script", "data-the-answer": 42}),
-            JS("app/asset.js", {"id": "asset-script", "data-the-answer": 42}),
-            JS("app/asset.js", {"id": "asset-script", "data-the-answer": 43}),
+            JS("app/asset.js", **{"id": "asset-script", "data-the-answer": 42}),
+            JS("app/asset.js", **{"id": "asset-script", "data-the-answer": 42}),
+            JS("app/asset.js", **{"id": "asset-script", "data-the-answer": 43}),
         ]
 
         # ``JS`` produces a Django ``Script``, so identity follows Django's own
@@ -76,13 +76,13 @@ class AssetTest(TestCase):
 
     def test_boolean_attributes(self):
         self.assertEqual(
-            str(JS("app/asset.js", {"bool": True, "cool": False})),
+            str(JS("app/asset.js", bool=True, cool=False)),
             '<script src="/static/app/asset.js" bool></script>',
         )
 
     def test_css(self):
         self.assertEqual(
-            str(CSS("app/style.css")),
+            str(CSS("app/style.css", media="all")),
             '<link href="/static/app/style.css" media="all" rel="stylesheet">',
         )
 
@@ -92,27 +92,63 @@ class AssetTest(TestCase):
         )
 
         self.assertEqual(
-            str(CSS("p{color:red}", inline=True)),
+            str(InlineStyle("p{color:red}")),
             '<style media="all">p{color:red}</style>',
         )
 
     def test_css_attrs(self):
         self.assertEqual(
-            str(CSS("app.css", attrs={"crossorigin": "anonymous"})),
+            str(CSS("app.css", crossorigin="anonymous", media="all")),
             '<link href="/static/app.css" crossorigin="anonymous" media="all"'
             ' rel="stylesheet">',
         )
-        self.assertEqual(
-            str(CSS("p{color:red}", "print", inline=True, attrs={"id": "s"})),
-            '<style id="s" media="print">p{color:red}</style>',
-        )
+
+    def test_deprecated_signatures(self):
+        # ``JS``/``CSS`` will become aliases of ``Script``/``Stylesheet``. Until
+        # then, the old forms keep working and render the same as before.
+        cases = [
+            (
+                lambda: JS("app.js", {"id": "x"}),
+                '<script src="/static/app.js" id="x"></script>',
+            ),
+            (
+                lambda: JS("app.js", attrs={"id": "x"}),
+                '<script src="/static/app.js" id="x"></script>',
+            ),
+            (
+                lambda: CSS("app.css"),
+                '<link href="/static/app.css" media="all" rel="stylesheet">',
+            ),
+            (
+                lambda: CSS("app.css", "print"),
+                '<link href="/static/app.css" media="print" rel="stylesheet">',
+            ),
+            (
+                lambda: CSS("app.css", media="all", attrs={"id": "s"}),
+                '<link href="/static/app.css" id="s" media="all" rel="stylesheet">',
+            ),
+            (
+                lambda: CSS("p{color:red}", inline=True),
+                '<style media="all">p{color:red}</style>',
+            ),
+            (
+                lambda: CSS("p{color:red}", "print", inline=True, attrs={"id": "s"}),
+                '<style id="s" media="print">p{color:red}</style>',
+            ),
+        ]
+        for produce, html in cases:
+            with self.subTest(html=html):
+                with self.assertWarns(DeprecationWarning) as cm:
+                    asset = produce()
+                self.assertEqual(str(asset), html)
+                self.assertEqual(cm.filename, __file__)
 
     def test_inline_css_is_not_escaped(self):
         # A ``<style>`` element is raw text: escaping does not round-trip there,
         # it just corrupts the CSS.
         css = 'nav > a::after{content:"<3"}\n@media (width > 40rem){a{color:red}}'
         self.assertEqual(
-            str(CSS(css, inline=True)),
+            str(InlineStyle(css)),
             f'<style media="all">{css}</style>',
         )
 
@@ -120,20 +156,20 @@ class AssetTest(TestCase):
         # The one sequence which would let the CSS escape its element.
         for css in ("a{}</style><script>alert(1)</script>", "a{}</STYLE >"):
             with self.subTest(css=css), self.assertRaises(ValueError):
-                CSS(css, inline=True)
+                InlineStyle(css)
 
     def test_js_produces_script(self):
-        asset = JS("app/asset.js", {"id": "x"})
+        asset = JS("app/asset.js", id="x")
         # ``JS`` is a factory producing a Django ``Script`` ...
         self.assertIsInstance(asset, Script)
         self.assertNotIsInstance(asset, Stylesheet)
         # ... while ``isinstance(x, JS)`` keeps answering truthfully.
         self.assertIsInstance(asset, JS)
-        self.assertNotIsInstance(CSS("app/style.css"), JS)
+        self.assertNotIsInstance(CSS("app/style.css", media="all"), JS)
 
     def test_css_produces_stylesheet_or_inline(self):
-        link = CSS("app/style.css")
-        inline = CSS("p{color:red}", inline=True)
+        link = CSS("app/style.css", media="all")
+        inline = InlineStyle("p{color:red}")
         self.assertIsInstance(link, Stylesheet)
         self.assertIsInstance(inline, InlineStyle)
         # Both flavours answer ``isinstance(x, CSS)``.

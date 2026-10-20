@@ -7,7 +7,7 @@ from django.utils.functional import SimpleLazyObject, empty
 from django.utils.html import html_safe
 from django.utils.safestring import mark_safe
 
-from js_asset import CSS, JS, JSON, ImportMap, Media, Script, Stylesheet
+from js_asset import CSS, JS, JSON, ImportMap, InlineStyle, Media, Script, Stylesheet
 
 
 try:  # Django >= 6.1
@@ -66,7 +66,7 @@ JS_ASSETS = [
     ),
     (
         "JS factory with attributes",
-        JS("app.js", {"type": "module"}),
+        JS("app.js", type="module"),
         '<script src="/static/app.js" type="module"></script>',
         '<script src="/static/app.js" nonce="n0nce" type="module"></script>',
     ),
@@ -109,7 +109,7 @@ CSS_ASSETS = [
     ),
     (
         "CSS factory",
-        CSS("app.css"),
+        CSS("app.css", media="all"),
         '<link href="/static/app.css" media="all" rel="stylesheet">',
         '<link href="/static/app.css" media="all" nonce="n0nce" rel="stylesheet">',
     ),
@@ -124,7 +124,7 @@ CSS_ASSETS = [
     ),
     (
         "inline CSS",
-        CSS("body{color:red}", inline=True),
+        InlineStyle("body{color:red}"),
         '<style media="all">body{color:red}</style>',
         '<style media="all" nonce="n0nce">body{color:red}</style>',
     ),
@@ -133,7 +133,7 @@ CSS_ASSETS = [
         # it, so the CSS has to be rendered exactly as given -- an escaped
         # ``&gt;`` would break the selector instead of standing for ``>``.
         "inline CSS with characters HTML would escape",
-        CSS('nav > a{content:"&"}', inline=True),
+        InlineStyle('nav > a{content:"&"}'),
         '<style media="all">nav > a{content:"&"}</style>',
         '<style media="all" nonce="n0nce">nav > a{content:"&"}</style>',
     ),
@@ -178,8 +178,8 @@ class AssetRenderingTest(TestCase):
         # ``_normalize_{js,css}`` would otherwise silently skip. (Excludes
         # html-safe strings, which Django 6.1 itself gets wrong.)
         kwargs = {
-            "css": {"all": ["a.css", CSS("b.css"), Stylesheet("c.css")]},
-            "js": ["a.js", JS("b.js"), Script("c.js"), JS("d.js", {"defer": True})],
+            "css": {"all": ["a.css", CSS("b.css", media="all"), Stylesheet("c.css")]},
+            "js": ["a.js", JS("b.js"), Script("c.js"), JS("d.js", defer=True)],
         }
         self.assertEqual(str(Media(**kwargs)), str(DjangoMedia(**kwargs)))
 
@@ -188,7 +188,7 @@ class MediaTest(TestCase):
     def test_nonce_applied_to_assets(self):
         media = Media(
             nonce="r@nd0m",
-            css={"all": [CSS("app.css")]},
+            css={"all": [CSS("app.css", media="all")]},
             js=[JS("app.js")],
         )
         html = media.render()
@@ -203,7 +203,7 @@ class MediaTest(TestCase):
 
     def test_nonce_conflicts_with_asset_nonce(self):
         for kwargs in [
-            {"js": [JS("app.js", {"nonce": "own"})]},
+            {"js": [JS("app.js", nonce="own")]},
             {"importmap": ImportMap({"a": "/static/a.js"}, nonce="own")},
         ]:
             with self.subTest(kwargs=kwargs):
@@ -228,7 +228,7 @@ class MediaTest(TestCase):
 
     @skipIf(nonce_attr is None, "Django < 6.1 has no built-in CSP support")
     def test_nonce_conflict_matches_django(self):
-        asset = JS("app.js", {"nonce": "own"})
+        asset = JS("app.js", nonce="own")
         with self.assertRaisesMessage(ValueError, "has conflicting attributes: nonce"):
             DjangoMedia(js=[asset]).render(attrs={"nonce": "r@nd0m"})
         with self.assertRaisesMessage(ValueError, "has conflicting attributes: nonce"):
@@ -242,7 +242,7 @@ class MediaTest(TestCase):
         media = Media(
             nonce="r@nd0m",
             importmap=ImportMap({"a": "/static/a.js"}),
-            js=[JS("app.js", {"type": "module"})],
+            js=[JS("app.js", type="module")],
         ) + Media(importmap=ImportMap({"b": "/static/b.js"}))
         self.assertEqual(
             media.render(),
@@ -295,7 +295,9 @@ class MediaTest(TestCase):
         )
 
     def test_merging_combines_css_and_js(self):
-        ours = Media(nonce="n", css={"all": [CSS("a.css")]}, js=[JS("a.js")])
+        ours = Media(
+            nonce="n", css={"all": [CSS("a.css", media="all")]}, js=[JS("a.js")]
+        )
         plain = DjangoMedia(css={"all": ["b.css"]}, js=["b.js"])
 
         merged = plain + ours  # via __radd__
@@ -528,7 +530,7 @@ class RenderPartsTest(TestCase):
         self.media = Media(
             nonce="n0nce",
             importmap=ImportMap({"a": "/static/a.js"}),
-            css={"all": [CSS("app.css")]},
+            css={"all": [CSS("app.css", media="all")]},
             js=[JS("app.js")],
         )
 
@@ -563,7 +565,7 @@ class RenderPartsTest(TestCase):
         media = Media(
             nonce="stored",
             importmap=ImportMap({"a": "/static/a.js"}),
-            css={"all": [CSS("app.css")]},
+            css={"all": [CSS("app.css", media="all")]},
             js=[JS("app.js")],
         )
         self.assertEqual(
@@ -578,7 +580,7 @@ class RenderPartsTest(TestCase):
             media.render(attrs={"media": "print"})
 
     def test_render_parts_accept_attrs(self):
-        media = Media(css={"all": [CSS("app.css")]}, js=[JS("app.js")])
+        media = Media(css={"all": [CSS("app.css", media="all")]}, js=[JS("app.js")])
         attrs = {"nonce": "from-attrs"}
         self.assertEqual(
             list(media.render_css(attrs=attrs)),
@@ -606,7 +608,7 @@ class GetItemTest(TestCase):
         self.media = Media(
             nonce="n0nce",
             importmap=ImportMap({"a": "/static/a.js"}),
-            css={"all": [CSS("app.css")]},
+            css={"all": [CSS("app.css", media="all")]},
             js=[JS("app.js")],
         )
 
@@ -666,8 +668,8 @@ class ImportMapArgumentTest(TestCase):
     def test_rendered_first(self):
         media = Media(
             importmap=ImportMap({"a": "/static/a.js"}),
-            css={"all": [CSS("app.css")]},
-            js=[JS("app.js", {"type": "module"})],
+            css={"all": [CSS("app.css", media="all")]},
+            js=[JS("app.js", type="module")],
         )
         self.assertEqual(
             media.render(attrs={"nonce": "n"}),
@@ -718,7 +720,7 @@ class ImportMapArgumentTest(TestCase):
         class EditorWidget(forms.Textarea):
             media = Media(
                 importmap=ImportMap({"editor": "editor/index.js"}),
-                js=[JS("editor/init.js", {"type": "module"})],
+                js=[JS("editor/init.js", type="module")],
             )
 
         class ArticleForm(forms.Form):

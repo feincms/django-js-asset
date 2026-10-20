@@ -66,7 +66,15 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
 - `js_asset/js.py` — `JS`/`CSS` are **factories** (a `_ProducesAsset`
   metaclass): calling them returns a Django `Script`/`Stylesheet`/`InlineStyle`
   so they dedup in `forms.Media.merge` against native assets *and* bare path
-  strings; `isinstance(x, JS)` still works via `__instancecheck__`. `JSON` has no
+  strings; `isinstance(x, JS)` still works via `__instancecheck__`. **Never
+  make them subclasses**: Django 6.2's `MediaAsset.__eq__` checks
+  `self.__class__ is other.__class__`, so a `JS(Script)` would not equal the
+  `Script` Django wraps bare strings into, and the file would render twice.
+  Goal: minimal delta to Django, `JS = Script` / `CSS = Stylesheet` in a later
+  major. They take Django's signature (`JS(src, **attrs)`,
+  `CSS(href, **attrs)`); the old forms (attrs dict, positional media,
+  `inline=True`, implicit `media="all"`) are **deprecated, not removed** —
+  django-ckeditor, django-mptt etc. depend on them. `JSON` has no
   Django counterpart; it is a `MediaAsset` subclass based on `_JSONAsset`,
   whose `path` is the escaped JSON (like `InlineStyle`)
   and which defines its own `render(*, attrs=None)` (Django's lacks `attrs=`

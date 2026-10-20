@@ -7,6 +7,12 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+- ``JS`` and ``CSS`` accept the attributes as keyword arguments like Django's
+  ``Script`` and ``Stylesheet``, which they will become aliases of. Deprecated
+  attribute dicts (``JS("a.js", {...})``, ``attrs=...``), a positional
+  ``media``, ``CSS(..., inline=True)`` (use ``InlineStyle``) and the implicit
+  ``media="all"`` of ``CSS()``; pass ``media="all"`` to keep the attribute.
+
 5.0a2 (2026-10-14)
 ~~~~~~~~~~~~~~~~~~
 

@@ -3,7 +3,7 @@ from django.forms.utils import flatatt
 from django.utils.html import format_html, mark_safe
 
 from js_asset._compat import MediaAsset, Script, Stylesheet
-from js_asset.js import CSS, JS, ImportMap
+from js_asset.js import ImportMap
 
 
 __all__ = ["Media"]
@@ -243,7 +243,7 @@ class Media(forms.Media):
             # tags which must render verbatim instead of being resolved through
             # ``static()``. Only bare paths are wrapped. (Django hit the same
             # trap in 6.1, fixed for 6.1.1 -- ticket #37262.)
-            asset = item if hasattr(item, "__html__") else JS(item)
+            asset = item if hasattr(item, "__html__") else Script(item)
             rendered.append(self._render_asset(asset, attrs))
         return rendered
 
@@ -252,7 +252,11 @@ class Media(forms.Media):
         for medium in sorted(self._css):
             for item in self._css[medium]:
                 # See ``_render_js`` on the ``__html__`` check.
-                asset = item if hasattr(item, "__html__") else CSS(item, media=medium)
+                asset = (
+                    item
+                    if hasattr(item, "__html__")
+                    else Stylesheet(item, media=medium)
+                )
                 rendered.append(self._render_asset(asset, attrs))
         return rendered
 
