@@ -12,6 +12,8 @@ depend on packages still using the removed APIs pin ``django-js-asset<6``.
 
 - Removed ``JS`` and ``CSS``. Use ``Script(src, **attrs)``,
   ``Stylesheet(href, media="all", **attrs)`` and ``InlineStyle(css, **attrs)``.
+- Removed ``render(nonce=...)`` of ``Media``, ``ImportMap`` and ``JSON``, use
+  ``render(attrs={"nonce": ...})``.
 
 5.0a3 (2026-10-20)
 ~~~~~~~~~~~~~~~~~~

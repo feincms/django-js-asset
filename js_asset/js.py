@@ -118,15 +118,7 @@ class JSON(MediaAsset):
         # isn't worth it, data blocks are few and mostly differ in their id.
         return hash(frozenset(self.attributes.items()))
 
-    def render(self, *, attrs=None, nonce=""):
-        if nonce:
-            warnings.warn(
-                f"{self.__class__.__name__}.render(nonce=...) is deprecated, use"
-                " render(attrs={'nonce': ...}) instead.",
-                RemovedInDjangoJsAsset60Warning,
-                stacklevel=2,
-            )
-            attrs = {"nonce": nonce} | (attrs or {})
+    def render(self, *, attrs=None):
         # Django's ``MediaAsset.render(attrs=)`` doesn't exist on 5.2 and 6.0.
         # Raise on conflicting attributes like it does.
         if attrs and (conflicts := attrs.keys() & self.attributes.keys()):
@@ -238,15 +230,7 @@ class ImportMap:
     def __repr__(self):
         return f"{type(self).__qualname__}({self._data!r})"
 
-    def render(self, *, attrs=None, nonce=""):
-        if nonce:
-            warnings.warn(
-                "ImportMap.render(nonce=...) is deprecated, use"
-                " render(attrs={'nonce': ...}) instead.",
-                RemovedInDjangoJsAsset60Warning,
-                stacklevel=2,
-            )
-            attrs = {"nonce": nonce} | (attrs or {})
+    def render(self, *, attrs=None):
         # Like Django's ``MediaAsset.render(attrs=)``. ``type`` is always
         # ``importmap``, a second one would be ignored by browsers.
         if attrs and (conflicts := attrs.keys() & {"type", *self.attributes}):

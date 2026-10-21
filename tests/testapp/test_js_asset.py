@@ -5,7 +5,6 @@ from js_asset.js import (
     JSON,
     InlineStyle,
     MediaAsset,
-    RemovedInDjangoJsAsset60Warning,
     Script,
     Stylesheet,
 )
@@ -102,8 +101,6 @@ class AssetTest(TestCase):
             '<script id="hello" nonce="N" type="application/json">'
             '{"hello": "world"}</script>',
         )
-        with self.assertWarns(RemovedInDjangoJsAsset60Warning):
-            asset.render(nonce="N")
         with self.assertRaisesMessage(ValueError, "conflicting attributes: type"):
             asset.render(attrs={"type": "text/plain"})
 

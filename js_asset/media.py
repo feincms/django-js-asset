@@ -1,11 +1,9 @@
-import warnings
-
 from django import forms
 from django.forms.utils import flatatt
 from django.utils.html import format_html, mark_safe
 
 from js_asset._compat import MediaAsset, Script, Stylesheet
-from js_asset.js import ImportMap, RemovedInDjangoJsAsset60Warning
+from js_asset.js import ImportMap
 
 
 __all__ = ["Media"]
@@ -146,15 +144,7 @@ class Media(forms.Media):
 
     # -- Rendering --------------------------------------------------------
 
-    def render(self, *, nonce=None, attrs=None):
-        if nonce is not None:
-            warnings.warn(
-                "Media.render(nonce=...) is deprecated, use"
-                " render(attrs={'nonce': ...}) instead.",
-                RemovedInDjangoJsAsset60Warning,
-                stacklevel=2,
-            )
-            attrs = {"nonce": nonce} | (attrs or {})
+    def render(self, *, attrs=None):
         return mark_safe(
             "\n".join(
                 filter(

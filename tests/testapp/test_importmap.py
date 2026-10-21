@@ -92,11 +92,6 @@ class ImportMapTest(TestCase):
             importmap.render(attrs={"nonce": "N"}),
             f'<script type="importmap" data-x="y" nonce="N">{html}',
         )
-        with self.assertWarns(RemovedInDjangoJsAsset60Warning):
-            self.assertEqual(
-                importmap.render(nonce="N"),
-                f'<script type="importmap" data-x="y" nonce="N">{html}',
-            )
         # Attributes survive merging.
         self.assertEqual((importmap | ImportMap({})).attributes, {"data-x": "y"})
 
