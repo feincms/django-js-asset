@@ -20,16 +20,17 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
 
 ## Deprecations
 
-All deprecations use `RemovedInDjangoJsAsset60Warning` (a
-`DeprecationWarning` subclass, exported from `js_asset`), and everything
-deprecated in 5.x is removed in 6.0. Check `cm.filename == __file__` in tests
-so the stacklevel points at the caller.
+6.0 removed everything deprecated in 5.x (`JS`, `CSS`, `render(nonce=)`,
+full import maps in `ImportMap()`, `RemovedInDjangoJsAsset60Warning`); see
+feincms/django-js-asset#44. New deprecations get a
+`RemovedInDjangoJsAsset70Warning` (a `DeprecationWarning` subclass, exported
+from `js_asset`). Check `cm.filename == __file__` in tests so the stacklevel
+points at the caller.
 
 ## Compatibility (hard constraint)
 
 - Python `>=3.10`, Django `>=4.2`. **Django 6.2+ is NOT an acceptable floor.**
-- `Script`/`Stylesheet` are Django's own (the deprecated `JS`/`CSS` produce
-  them, see Layout). Where Django lacks them they are **backported** in `js_asset/_compat.py`, so the
+- `Script`/`Stylesheet` are Django's own. Where Django lacks them they are **backported** in `js_asset/_compat.py`, so the
   4.2 floor holds — we provide the machinery, we don't *depend* on Django
   having it. Availability in real Django: `Script` (5.2+), `Stylesheet` +
   `MediaAsset.render(attrs=)` + attribute-aware `__eq__`/`__hash__` (6.1+,
@@ -71,25 +72,16 @@ so the stacklevel points at the caller.
 
 - `js_asset/_compat.py` — `MediaAsset`/`Script`/`Stylesheet`: imported from
   Django where present, backported (with the 6.1 contract) below 5.2/6.1.
-- `js_asset/js.py` — `JS`/`CSS` are **factories** (a `_ProducesAsset`
-  metaclass): calling them returns a Django `Script`/`Stylesheet`/`InlineStyle`
-  so they dedup in `forms.Media.merge` against native assets *and* bare path
-  strings; `isinstance(x, JS)` still works via `__instancecheck__`. **Never
-  make them subclasses**: Django 6.1+'s `MediaAsset.__eq__` checks
-  `self.__class__ is other.__class__`, so a `JS(Script)` would not equal the
-  `Script` Django wraps bare strings into, and the file would render twice.
-  `JS` and `CSS` are **deprecated as a whole** and removed in 6.0 (not
-  aliased): every call and every `isinstance`/`issubclass` check warns. All
-  their forms (attrs dict, positional media, `inline=True`, implicit
-  `media="all"`) keep working until then; 5.0 final removes nothing beyond
-  the 5.0a1/a2 changes. The implicit `media="all"` matters: Django >= 6.1
-  wraps `"a.css"` in `css={"all": [...]}` into `Stylesheet(..., media="all")`,
-  and attribute-aware equality means a `Stylesheet` without `media` renders
-  a second time. Plan and downstream status: feincms/django-js-asset#44. `JSON` has no
+- `js_asset/js.py` — `InlineStyle`, `JSON`, `ImportMap`. Never subclass
+  Django's `Script`/`Stylesheet` for our own names: Django 6.1+'s
+  `MediaAsset.__eq__` checks `self.__class__ is other.__class__`, so a
+  subclass would not equal the `Script` Django wraps bare strings into, and
+  the file would render twice. (This is why 5.x's deprecated `JS`/`CSS` were
+  factories, removed in 6.0.) `JSON` has no
   Django counterpart; it is a `MediaAsset` subclass whose `path` is the
   escaped JSON (like `InlineStyle`) and which defines its own
-  `render(*, attrs=None)` (Django's lacks `attrs=` on 5.2/6.0; `nonce=` is
-  deprecated) and an order-insensitive `__eq__` (Django 5.2/6.0 compare the
+  `render(*, attrs=None)` (Django's lacks `attrs=` on 5.2/6.0)
+  and an order-insensitive `__eq__` (Django 5.2/6.0 compare the
   rendered `path`). Its `__hash__` only covers the attributes: that's
   consistent with `__eq__` without hashing the data. Output is byte-identical to native Django
   assets (flatatt sorts attributes), which the exact-string tests depend on.
@@ -101,9 +93,8 @@ so the stacklevel points at the caller.
   `</style` — the only sequence which could close the element early — which is
   what keeps the unescaped output safe.
 - `ImportMap` is **not** a `MediaAsset`: it is passed as
-  `Media(importmap=...)`, never in `js` lists (rendering one there raises a
-  `TypeError`, checked on `_js_lists` before `Media.merge` would fail on the
-  unhashable map). That check is a 5.0 migration aid: **remove it in 6.0**. It renders itself (`render(attrs=)` with the same conflict
+  `Media(importmap=...)`, never in `js` lists (`Media.merge` raises a `TypeError`
+  since it is unhashable). It renders itself (`render(attrs=)` with the same conflict
   check as `MediaAsset.render()`), copies the data it is given and is
   immutable; combine with `|` / `|=`. `update()` was deprecated in 4.2 and has
   been removed. The import maps DEP draft in
