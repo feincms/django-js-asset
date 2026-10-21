@@ -36,8 +36,9 @@ points at the caller.
   `MediaAsset.render(attrs=)` + attribute-aware `__eq__`/`__hash__` (6.1+,
   ticket #37088). The `<5.2` backport mirrors the **6.1** contract.
 - Don't rely on Django's `MediaAsset.render(attrs=...)` existing: it is absent
-  on 5.2/6.0. `media.py:_render_asset` injects the nonce itself by rebuilding
-  the tag from `element_template` + `flatatt`, which works on every version.
+  on 5.2/6.0. `js.py:_render_with_attrs` (used by `Media` and `JSON.render`)
+  adds the attributes itself by rebuilding the tag from `element_template` +
+  `flatatt`, which works on every version.
 - Cross-version gotcha: Django >= 6.1 wraps bare js/css path strings into
   `Script`/`Stylesheet` in `Media._js`/`._css`; older Django keeps raw strings.
   `media.py:render_{js,css}` wrap any leftover strings by running the result

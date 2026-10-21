@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import copy
 import re
 
@@ -24,6 +22,29 @@ __all__ = [
 
 
 static_lazy = lazy(static, str)
+
+
+def _check_conflicts(obj, attrs, attributes):
+    # Raise like Django's ``MediaAsset.render(attrs=)`` (>= 6.1) instead of
+    # silently replacing the object's own attributes, e.g. its nonce.
+    if attrs and (conflicts := attrs.keys() & attributes):
+        raise ValueError(
+            f"{obj.__class__.__qualname__} has conflicting attributes: "
+            + ", ".join(sorted(conflicts))
+        )
+
+
+def _render_with_attrs(asset, attrs):
+    # ``MediaAsset.render(attrs=)`` only exists on Django >= 6.1. Rebuilding
+    # the tag from ``element_template`` keeps output identical on every
+    # supported Django (4.2 -> main), and ``flatatt`` sorts the attributes so
+    # they land in the same place as with Django's own.
+    _check_conflicts(asset, attrs, asset.attributes.keys())
+    return format_html(
+        asset.element_template,
+        path=asset.path,
+        attributes=flatatt((attrs or {}) | asset.attributes),
+    )
 
 
 class InlineStyle(MediaAsset):
@@ -111,17 +132,7 @@ class JSON(MediaAsset):
 
     def render(self, *, attrs=None):
         # Django's ``MediaAsset.render(attrs=)`` doesn't exist on 5.2 and 6.0.
-        # Raise on conflicting attributes like it does.
-        if attrs and (conflicts := attrs.keys() & self.attributes.keys()):
-            raise ValueError(
-                f"{self.__class__.__qualname__} has conflicting attributes: "
-                + ", ".join(sorted(conflicts))
-            )
-        return format_html(
-            self.element_template,
-            path=self.path,
-            attributes=flatatt((attrs or {}) | self.attributes),
-        )
+        return _render_with_attrs(self, attrs)
 
     def __str__(self):
         return self.render()
@@ -205,10 +216,7 @@ class ImportMap:
     def render(self, *, attrs=None):
         # Like Django's ``MediaAsset.render(attrs=)``. ``type`` is always
         # ``importmap``, a second one would be ignored by browsers.
-        if attrs and (conflicts := attrs.keys() & {"type", *self.attributes}):
-            raise ValueError(
-                "ImportMap has conflicting attributes: " + ", ".join(sorted(conflicts))
-            )
+        _check_conflicts(self, attrs, {"type", *self.attributes})
         # Copy, resolving the paths must not change the import map.
         data = dict(self._data)
         if "imports" in data:
