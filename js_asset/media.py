@@ -3,7 +3,6 @@ from django.forms.utils import flatatt
 from django.utils.html import format_html, mark_safe
 
 from js_asset._compat import MediaAsset, Script, Stylesheet
-from js_asset.js import ImportMap
 
 
 __all__ = ["Media"]
@@ -215,18 +214,6 @@ class Media(forms.Media):
                 else ""
             )
         return nonce
-
-    @property
-    def _js(self):
-        # Check before ``Media.merge`` runs, which would fail with a less
-        # helpful error since import maps aren't hashable. A migration aid for
-        # 5.0, remove it in 6.0 (``Media.merge`` still raises a TypeError).
-        if any(isinstance(item, ImportMap) for js in self._js_lists for item in js):
-            raise TypeError(
-                "Import maps in js lists aren't supported anymore, pass them"
-                " as Media(importmap=...) instead."
-            )
-        return super()._js
 
     @staticmethod
     def _render_asset(asset, attrs):
