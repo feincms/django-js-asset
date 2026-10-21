@@ -13,8 +13,6 @@ from js_asset._compat import MediaAsset, Script, Stylesheet
 
 
 __all__ = [
-    "CSS",
-    "JS",
     "JSON",
     "ImportMap",
     "InlineStyle",
@@ -64,103 +62,6 @@ class RemovedInDjangoJsAsset60Warning(DeprecationWarning):
     Warns about features which will be removed in django-js-asset 6.0. A
     separate category so that projects can turn exactly these into errors.
     """
-
-
-class _ProducesAsset(type):
-    """
-    Metaclass turning the deprecated ``JS``/``CSS`` into factories: calling
-    them returns a Django asset (``Script``/``Stylesheet``/``InlineStyle``) so
-    they share ``forms.Media.merge`` buckets -- and dedup -- with Django's own
-    assets and with bare path strings. ``isinstance(x, JS)`` keeps answering
-    truthfully by delegating to the produced type(s).
-    """
-
-    def __call__(cls, *args, **kwargs):
-        return cls._produce(*args, **kwargs)
-
-    def __instancecheck__(cls, instance):
-        _deprecated(cls._isinstance_message, stacklevel=3)
-        return isinstance(instance, cls._produces)
-
-    def __subclasscheck__(cls, subclass):
-        _deprecated(cls._isinstance_message, stacklevel=3)
-        return issubclass(subclass, cls._produces)
-
-
-def _deprecated(message, stacklevel=4):
-    # Called from ``_produce``, which is called from ``_ProducesAsset.__call__``.
-    warnings.warn(message, RemovedInDjangoJsAsset60Warning, stacklevel=stacklevel)
-
-
-def _legacy_attrs(name, args, attributes):
-    # The attributes dict of 4.x and older, ``Script``/``Stylesheet`` take the
-    # attributes as keyword arguments.
-    if len(args) > 1:
-        raise TypeError(f"{name}() takes at most one attributes dict.")
-    attrs = attributes.pop("attrs", None)
-    if args:
-        attrs = args[0]
-    return {**(attrs or {}), **attributes}
-
-
-class JS(metaclass=_ProducesAsset):
-    """
-    Deprecated, produces a :class:`Script`. Use ``Script(src, **attributes)``.
-    """
-
-    _produces = Script
-    _isinstance_message = (
-        "JS is deprecated and will be removed in django-js-asset 6.0, check"
-        " against Script instead."
-    )
-
-    @staticmethod
-    def _produce(src, *args, **attributes):
-        _deprecated(
-            "JS() is deprecated and will be removed in django-js-asset 6.0, use"
-            " Script(src, **attrs) instead (from django.forms on Django >= 5.2,"
-            " from js_asset otherwise)."
-        )
-        return Script(src, **_legacy_attrs("JS", args, attributes))
-
-
-class CSS(metaclass=_ProducesAsset):
-    """
-    Deprecated, produces a :class:`Stylesheet` (or an :class:`InlineStyle`
-    with ``inline=True``). Use ``Stylesheet(href, media="all", **attributes)``;
-    ``CSS()`` adds ``media="all"`` when no media is given, ``Stylesheet()``
-    doesn't.
-    """
-
-    _produces = (Stylesheet, InlineStyle)
-    _isinstance_message = (
-        "CSS is deprecated and will be removed in django-js-asset 6.0, check"
-        " against Stylesheet or InlineStyle instead."
-    )
-
-    @staticmethod
-    def _produce(href, *args, inline=False, **attributes):
-        if inline:
-            _deprecated(
-                "CSS(..., inline=True) is deprecated and will be removed in"
-                " django-js-asset 6.0, use InlineStyle(css, **attrs) instead."
-            )
-        else:
-            _deprecated(
-                "CSS() is deprecated and will be removed in django-js-asset 6.0,"
-                ' use Stylesheet(href, media="all", **attrs) instead (from'
-                " django.forms on Django >= 6.1, from js_asset otherwise). Pass"
-                " the media explicitly: Stylesheet() has no default media, and"
-                ' media="all" is what de-duplicates it against paths in'
-                ' css={"all": [...]}.'
-            )
-        if args:
-            attributes["media"], *args = args
-        attributes = _legacy_attrs("CSS", args, attributes)
-        attributes.setdefault("media", "all")
-        if inline:
-            return InlineStyle(href, **attributes)
-        return Stylesheet(href, **attributes)
 
 
 def _json_content(data):

@@ -7,6 +7,12 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+django-js-asset 6.0 removes everything deprecated in 5.x. Projects which
+depend on packages still using the removed APIs pin ``django-js-asset<6``.
+
+- Removed ``JS`` and ``CSS``. Use ``Script(src, **attrs)``,
+  ``Stylesheet(href, media="all", **attrs)`` and ``InlineStyle(css, **attrs)``.
+
 5.0a3 (2026-10-20)
 ~~~~~~~~~~~~~~~~~~
 

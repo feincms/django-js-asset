@@ -20,8 +20,9 @@ Django version and adds what Django doesn't have yet:
 It supports Django 4.2 and newer, up to and including the main branch; the
 `tox configuration
 <https://github.com/feincms/django-js-asset/blob/main/tox.ini>`_ has the
-definitive answers. 5.0 changes import maps and attributes in
-backwards-incompatible ways, read the `change log
+definitive answers. 5.0 changed import maps and attributes in
+backwards-incompatible ways and 6.0 removed everything deprecated in 5.x,
+read the `change log
 <https://github.com/feincms/django-js-asset/blob/main/CHANGELOG.rst>`_ before
 upgrading.
 
@@ -68,25 +69,13 @@ escapes would not be decoded inside it and would break the CSS instead. For the
 same reason the CSS must not contain ``</style``, which would end the element
 early; passing such CSS raises a ``ValueError``.
 
-``JS`` and ``CSS`` are deprecated and will be removed in 6.0. They produce
-``Script`` and ``Stylesheet`` objects, so replacing them changes nothing
-except for one detail: ``CSS(href)`` adds ``media="all"`` when no media is
-given, ``Stylesheet(href)`` doesn't. Replace it with
-``Stylesheet(href, media="all")``, see below. Other deprecated forms, which
-still work until then: an attributes dict (``JS("a.js", {...})``,
-``attrs={...}``), a positional media (``CSS("a.css", "print")``) and
-``CSS(..., inline=True)`` (use ``InlineStyle``). Deprecations raise a
-``js_asset.RemovedInDjangoJsAsset60Warning``, a ``DeprecationWarning``
-subclass, so you can turn exactly these into errors, e.g. in your test
-settings:
-
-.. code-block:: python
-
-    import warnings
-
-    from js_asset import RemovedInDjangoJsAsset60Warning
-
-    warnings.simplefilter("error", RemovedInDjangoJsAsset60Warning)
+``JS`` and ``CSS`` have been removed in 6.0. Replace ``JS(src, {...})`` with
+``Script(src, **{...})`` and ``CSS(href)`` with
+``Stylesheet(href, media="all")`` -- ``CSS()`` added ``media="all"`` when no
+media was given, ``Stylesheet()`` doesn't, see below.
+``CSS(css, inline=True)`` is ``InlineStyle(css)``. django-js-asset 5.x warns
+about every use of ``JS`` and ``CSS``; pin ``django-js-asset<6`` if you depend
+on packages which still use them.
 
 
 Deduplication
