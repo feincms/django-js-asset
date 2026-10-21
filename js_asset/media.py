@@ -146,14 +146,11 @@ class Media(forms.Media):
     def render(self, *, attrs=None):
         return mark_safe(
             "\n".join(
-                filter(
-                    None,
-                    [
-                        *self.render_importmap(attrs=attrs),
-                        *self.render_css(attrs=attrs),
-                        *self.render_js(attrs=attrs),
-                    ],
-                )
+                [
+                    *self.render_importmap(attrs=attrs),
+                    *self.render_css(attrs=attrs),
+                    *self.render_js(attrs=attrs),
+                ]
             )
         )
 
