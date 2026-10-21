@@ -19,6 +19,8 @@ depend on packages still using the removed APIs pin ``django-js-asset<6``.
 - Removed the helpful ``TypeError`` for import maps in ``js`` lists. They
   still fail, with Django's ``TypeError: unhashable type``; pass them as
   ``Media(importmap=...)``.
+- Removed ``RemovedInDjangoJsAsset60Warning``. Drop warning filters
+  referencing it.
 
 5.0a3 (2026-10-20)
 ~~~~~~~~~~~~~~~~~~

@@ -16,7 +16,6 @@ __all__ = [
     "ImportMap",
     "InlineStyle",
     "MediaAsset",
-    "RemovedInDjangoJsAsset60Warning",
     "Script",
     "Stylesheet",
     "static",
@@ -54,13 +53,6 @@ class InlineStyle(MediaAsset):
         # not be read back as ``>`` or ``"`` -- it would simply break the rule
         # (``nav &gt; a`` matches nothing). See ``__init__`` on why this is safe.
         return mark_safe(self._path)
-
-
-class RemovedInDjangoJsAsset60Warning(DeprecationWarning):
-    """
-    Warns about features which will be removed in django-js-asset 6.0. A
-    separate category so that projects can turn exactly these into errors.
-    """
 
 
 def _json_content(data):
