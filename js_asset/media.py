@@ -157,14 +157,11 @@ class Media(forms.Media):
             attrs = {"nonce": nonce} | (attrs or {})
         return mark_safe(
             "\n".join(
-                filter(
-                    None,
-                    [
-                        *self.render_importmap(attrs=attrs),
-                        *self.render_css(attrs=attrs),
-                        *self.render_js(attrs=attrs),
-                    ],
-                )
+                [
+                    *self.render_importmap(attrs=attrs),
+                    *self.render_css(attrs=attrs),
+                    *self.render_js(attrs=attrs),
+                ]
             )
         )
 
