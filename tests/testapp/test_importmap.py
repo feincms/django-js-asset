@@ -4,7 +4,6 @@ from django.test import TestCase
 from js_asset.js import (
     ImportMap,
     MediaAsset,
-    RemovedInDjangoJsAsset60Warning,
     static_lazy,
 )
 from js_asset.media import Media
@@ -130,17 +129,6 @@ class ImportMapTest(TestCase):
         with self.assertRaisesMessage(TypeError, "Media(importmap=...)"):
             media["js"]
 
-    def test_deprecated_full_import_map(self):
-        with self.assertWarnsMessage(
-            RemovedInDjangoJsAsset60Warning, "full import map"
-        ):
-            importmap = ImportMap(
-                {
-                    "imports": {"a": "/a.js"},
-                    "_unknown_": "Automatically dropped when merging.",
-                }
-            )
-        self.assertEqual(
-            importmap | ImportMap({"b": "/b.js"}),
-            ImportMap({"a": "/a.js", "b": "/b.js"}),
-        )
+    def test_full_import_map_is_rejected(self):
+        with self.assertRaisesMessage(TypeError, "scopes= and integrity="):
+            ImportMap({"imports": {"a": "/a.js"}})

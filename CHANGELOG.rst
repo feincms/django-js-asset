@@ -14,6 +14,8 @@ depend on packages still using the removed APIs pin ``django-js-asset<6``.
   ``Stylesheet(href, media="all", **attrs)`` and ``InlineStyle(css, **attrs)``.
 - Removed ``render(nonce=...)`` of ``Media``, ``ImportMap`` and ``JSON``, use
   ``render(attrs={"nonce": ...})``.
+- Passing a full import map to ``ImportMap()`` raises a ``TypeError``, use
+  ``ImportMap(imports, scopes=..., integrity=...)``.
 
 5.0a3 (2026-10-20)
 ~~~~~~~~~~~~~~~~~~

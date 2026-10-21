@@ -126,8 +126,7 @@ all media objects added together are combined into a single
     )
 
 ``ImportMap`` takes the ``imports`` of the import map, and ``scopes=`` and
-``integrity=`` keyword arguments for the other parts (passing a full import map
-is deprecated). Paths are resolved when rendering, like ``Script`` paths: relative
+``integrity=`` keyword arguments for the other parts. Paths are resolved when rendering, like ``Script`` paths: relative
 paths are passed through ``static()``, so defining import maps at module level
 works with ``ManifestStaticFilesStorage``. URLs with a scheme (e.g.
 ``https:``) and paths starting with ``/`` are used as they are. Prefix mappings

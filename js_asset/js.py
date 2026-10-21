@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import re
-import warnings
 
 from django.forms.utils import flatatt
 from django.templatetags.static import static
@@ -136,8 +135,6 @@ class JSON(MediaAsset):
         return self.render()
 
 
-_IMPORTMAP_KEYS = {"imports", "scopes", "integrity"}
-
 # Paths which are used as they are instead of being passed through ``static()``:
 # URLs with a scheme (the same check as Django's
 # ``HashedFilesMixin.url_converter``) and paths starting with ``/`` (including
@@ -152,15 +149,6 @@ def _resolve(path):
     if _URL_WITH_SCHEME.match(path) or path.startswith("/"):
         return path
     return static(path)
-
-
-def _is_full_importmap(imports):
-    # Specifiers map to paths (strings), the top-level keys of a full import
-    # map to dictionaries, so the two cannot be confused.
-    return any(
-        key in _IMPORTMAP_KEYS and isinstance(value, dict)
-        for key, value in imports.items()
-    )
 
 
 @html_safe
@@ -181,28 +169,20 @@ class ImportMap:
     """
 
     def __init__(self, imports=None, *, scopes=None, integrity=None, **attributes):
-        if (
-            imports is not None
-            and scopes is None
-            and integrity is None
-            and _is_full_importmap(imports)
-        ):
-            warnings.warn(
-                "Passing a full import map to ImportMap() is deprecated, pass"
-                " the imports and the scopes= and integrity= keyword arguments"
-                " instead: ImportMap(imports, scopes=..., integrity=...).",
-                RemovedInDjangoJsAsset60Warning,
-                stacklevel=2,
+        # Specifiers map to paths, so a dictionary is a full import map, which
+        # ImportMap() doesn't take anymore. It would render as garbage.
+        if imports and any(isinstance(value, dict) for value in imports.values()):
+            raise TypeError(
+                "ImportMap() takes the imports, pass scopes= and integrity= as"
+                " keyword arguments: ImportMap(imports, scopes=..., integrity=...)."
             )
-            data = imports
-        else:
-            data = {}
-            if imports:
-                data["imports"] = imports
-            if scopes:
-                data["scopes"] = scopes
-            if integrity:
-                data["integrity"] = integrity
+        data = {}
+        if imports:
+            data["imports"] = imports
+        if scopes:
+            data["scopes"] = scopes
+        if integrity:
+            data["integrity"] = integrity
         if "type" in attributes:
             raise ValueError("ImportMap doesn't accept a type attribute.")
         # Copy the data, import maps must not change when the caller's dict does.
