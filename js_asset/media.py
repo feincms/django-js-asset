@@ -1,11 +1,8 @@
-import warnings
-
 from django import forms
-from django.forms.utils import flatatt
-from django.utils.html import format_html, mark_safe
+from django.utils.html import mark_safe
 
 from js_asset._compat import MediaAsset, Script, Stylesheet
-from js_asset.js import ImportMap, RemovedInDjangoJsAsset60Warning
+from js_asset.js import _render_with_attrs
 
 
 __all__ = ["Media"]
@@ -146,25 +143,14 @@ class Media(forms.Media):
 
     # -- Rendering --------------------------------------------------------
 
-    def render(self, *, nonce=None, attrs=None):
-        if nonce is not None:
-            warnings.warn(
-                "Media.render(nonce=...) is deprecated, use"
-                " render(attrs={'nonce': ...}) instead.",
-                RemovedInDjangoJsAsset60Warning,
-                stacklevel=2,
-            )
-            attrs = {"nonce": nonce} | (attrs or {})
+    def render(self, *, attrs=None):
         return mark_safe(
             "\n".join(
-                filter(
-                    None,
-                    [
-                        *self.render_importmap(attrs=attrs),
-                        *self.render_css(attrs=attrs),
-                        *self.render_js(attrs=attrs),
-                    ],
-                )
+                [
+                    *self.render_importmap(attrs=attrs),
+                    *self.render_css(attrs=attrs),
+                    *self.render_js(attrs=attrs),
+                ]
             )
         )
 
@@ -226,42 +212,10 @@ class Media(forms.Media):
             )
         return nonce
 
-    @property
-    def _js(self):
-        # Check before ``Media.merge`` runs, which would fail with a less
-        # helpful error since import maps aren't hashable. A migration aid for
-        # 5.0, remove it in 6.0 (``Media.merge`` still raises a TypeError).
-        if any(isinstance(item, ImportMap) for js in self._js_lists for item in js):
-            raise TypeError(
-                "Import maps in js lists aren't supported anymore, pass them"
-                " as Media(importmap=...) instead."
-            )
-        return super()._js
-
     @staticmethod
     def _render_asset(asset, attrs):
         if isinstance(asset, MediaAsset):
-            if not attrs:
-                return asset.__html__()
-            if conflicts := attrs.keys() & asset.attributes.keys():
-                # Raise like Django's ``MediaAsset.render(attrs=)`` (>= 6.1)
-                # instead of silently replacing the asset's own attributes,
-                # e.g. its nonce, so the behavior doesn't depend on which
-                # ``Media`` class renders.
-                raise ValueError(
-                    f"{asset.__class__.__qualname__} has conflicting attributes: "
-                    + ", ".join(sorted(conflicts))
-                )
-            # Add the attributes ourselves rather than via MediaAsset.render(
-            # attrs=), which only exists on Django >= 6.1. Rebuilding the tag
-            # from ``element_template`` keeps output identical on every
-            # supported Django (4.2 -> main), and ``flatatt`` sorts the
-            # attributes so they land in the same place as with Django's own.
-            return format_html(
-                asset.element_template,
-                path=asset.path,
-                attributes=flatatt(attrs | asset.attributes),
-            )
+            return _render_with_attrs(asset, attrs) if attrs else asset.__html__()
         # Any other asset follows Django's plain ``__html__`` media contract
         # (an object that only knows how to render itself). Mirror
         # ``forms.Media``'s fallback so such assets keep working -- the

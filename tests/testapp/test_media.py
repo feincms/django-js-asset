@@ -12,7 +12,6 @@ from js_asset import (
     ImportMap,
     InlineStyle,
     Media,
-    RemovedInDjangoJsAsset60Warning,
     Script,
     Stylesheet,
 )
@@ -229,10 +228,6 @@ class MediaTest(TestCase):
         self.assertEqual(
             media.render(attrs={"nonce": "passed"}), APP_JS.format(nonce("passed"))
         )
-        with self.assertWarns(RemovedInDjangoJsAsset60Warning) as cm:
-            html = media.render(nonce="n")
-        self.assertEqual(html, APP_JS.format(nonce("n")))
-        self.assertEqual(cm.filename, __file__)
 
     def test_render_applies_all_attrs(self):
         # Like Django >= 6.1's ``Media.render(attrs=)``, all attributes are
