@@ -22,6 +22,9 @@ depend on packages still using the removed APIs pin ``django-js-asset<6``.
 - Removed ``RemovedInDjangoJsAsset60Warning``. Drop warning filters
   referencing it.
 
+5.0 (2026-10-26)
+~~~~~~~~~~~~~~~~
+
 5.0a3 (2026-10-20)
 ~~~~~~~~~~~~~~~~~~
 
