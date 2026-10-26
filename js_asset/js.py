@@ -14,6 +14,7 @@ __all__ = [
     "ImportMap",
     "InlineStyle",
     "MediaAsset",
+    "RemovedInDjangoJsAsset60Warning",
     "Script",
     "Stylesheet",
     "static",
@@ -22,6 +23,13 @@ __all__ = [
 
 
 static_lazy = lazy(static, str)
+
+
+class RemovedInDjangoJsAsset60Warning(DeprecationWarning):
+    """
+    Nothing emits this anymore. Kept for one more release so that warning
+    filters referencing it don't fail on import; removed in 6.1.
+    """
 
 
 def _check_conflicts(obj, attrs, attributes):

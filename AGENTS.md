@@ -21,8 +21,9 @@ names from its `envlist`: an undefined Django factor (e.g. `dj62`) has no
 ## Deprecations
 
 6.0 removed everything deprecated in 5.x (`JS`, `CSS`, `render(nonce=)`,
-full import maps in `ImportMap()`, `RemovedInDjangoJsAsset60Warning`); see
-feincms/django-js-asset#44. New deprecations get a
+full import maps in `ImportMap()`); see feincms/django-js-asset#44.
+`RemovedInDjangoJsAsset60Warning` is kept, unused, so warning filters
+referencing it don't fail on import: remove it in 6.1. New deprecations get a
 `RemovedInDjangoJsAsset70Warning` (a `DeprecationWarning` subclass, exported
 from `js_asset`). Check `cm.filename == __file__` in tests so the stacklevel
 points at the caller.

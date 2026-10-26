@@ -1,6 +1,7 @@
 from django.forms import Media
 from django.test import TestCase
 
+import js_asset
 from js_asset.js import (
     JSON,
     InlineStyle,
@@ -113,3 +114,9 @@ class AssetTest(TestCase):
         self.assertEqual(JSON({"a": 1, "b": 2}), JSON({"b": 2, "a": 1}))
         self.assertEqual(hash(JSON({"a": 1, "b": 2})), hash(JSON({"b": 2, "a": 1})))
         self.assertNotEqual(JSON({"a": 1}, id="x"), JSON({"a": 1}))
+
+    def test_removed_in_60_warning_kept(self):
+        # Kept (unused) for warning filters, remove in 6.1.
+        self.assertTrue(
+            issubclass(js_asset.RemovedInDjangoJsAsset60Warning, DeprecationWarning)
+        )
