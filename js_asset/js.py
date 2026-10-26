@@ -1,8 +1,5 @@
-from __future__ import annotations
-
 import copy
 import re
-import warnings
 
 from django.forms.utils import flatatt
 from django.templatetags.static import static
@@ -13,8 +10,6 @@ from js_asset._compat import MediaAsset, Script, Stylesheet
 
 
 __all__ = [
-    "CSS",
-    "JS",
     "JSON",
     "ImportMap",
     "InlineStyle",
@@ -28,6 +23,36 @@ __all__ = [
 
 
 static_lazy = lazy(static, str)
+
+
+class RemovedInDjangoJsAsset60Warning(DeprecationWarning):
+    """
+    Nothing emits this anymore. Kept for one more release so that warning
+    filters referencing it don't fail on import; removed in 6.1.
+    """
+
+
+def _check_conflicts(obj, attrs, attributes):
+    # Raise like Django's ``MediaAsset.render(attrs=)`` (>= 6.1) instead of
+    # silently replacing the object's own attributes, e.g. its nonce.
+    if attrs and (conflicts := attrs.keys() & attributes):
+        raise ValueError(
+            f"{obj.__class__.__qualname__} has conflicting attributes: "
+            + ", ".join(sorted(conflicts))
+        )
+
+
+def _render_with_attrs(asset, attrs):
+    # ``MediaAsset.render(attrs=)`` only exists on Django >= 6.1. Rebuilding
+    # the tag from ``element_template`` keeps output identical on every
+    # supported Django (4.2 -> main), and ``flatatt`` sorts the attributes so
+    # they land in the same place as with Django's own.
+    _check_conflicts(asset, attrs, asset.attributes.keys())
+    return format_html(
+        asset.element_template,
+        path=asset.path,
+        attributes=flatatt((attrs or {}) | asset.attributes),
+    )
 
 
 class InlineStyle(MediaAsset):
@@ -57,110 +82,6 @@ class InlineStyle(MediaAsset):
         # not be read back as ``>`` or ``"`` -- it would simply break the rule
         # (``nav &gt; a`` matches nothing). See ``__init__`` on why this is safe.
         return mark_safe(self._path)
-
-
-class RemovedInDjangoJsAsset60Warning(DeprecationWarning):
-    """
-    Warns about features which will be removed in django-js-asset 6.0. A
-    separate category so that projects can turn exactly these into errors.
-    """
-
-
-class _ProducesAsset(type):
-    """
-    Metaclass turning the deprecated ``JS``/``CSS`` into factories: calling
-    them returns a Django asset (``Script``/``Stylesheet``/``InlineStyle``) so
-    they share ``forms.Media.merge`` buckets -- and dedup -- with Django's own
-    assets and with bare path strings. ``isinstance(x, JS)`` keeps answering
-    truthfully by delegating to the produced type(s).
-    """
-
-    def __call__(cls, *args, **kwargs):
-        return cls._produce(*args, **kwargs)
-
-    def __instancecheck__(cls, instance):
-        _deprecated(cls._isinstance_message, stacklevel=3)
-        return isinstance(instance, cls._produces)
-
-    def __subclasscheck__(cls, subclass):
-        _deprecated(cls._isinstance_message, stacklevel=3)
-        return issubclass(subclass, cls._produces)
-
-
-def _deprecated(message, stacklevel=4):
-    # Called from ``_produce``, which is called from ``_ProducesAsset.__call__``.
-    warnings.warn(message, RemovedInDjangoJsAsset60Warning, stacklevel=stacklevel)
-
-
-def _legacy_attrs(name, args, attributes):
-    # The attributes dict of 4.x and older, ``Script``/``Stylesheet`` take the
-    # attributes as keyword arguments.
-    if len(args) > 1:
-        raise TypeError(f"{name}() takes at most one attributes dict.")
-    attrs = attributes.pop("attrs", None)
-    if args:
-        attrs = args[0]
-    return {**(attrs or {}), **attributes}
-
-
-class JS(metaclass=_ProducesAsset):
-    """
-    Deprecated, produces a :class:`Script`. Use ``Script(src, **attributes)``.
-    """
-
-    _produces = Script
-    _isinstance_message = (
-        "JS is deprecated and will be removed in django-js-asset 6.0, check"
-        " against Script instead."
-    )
-
-    @staticmethod
-    def _produce(src, *args, **attributes):
-        _deprecated(
-            "JS() is deprecated and will be removed in django-js-asset 6.0, use"
-            " Script(src, **attrs) instead (from django.forms on Django >= 5.2,"
-            " from js_asset otherwise)."
-        )
-        return Script(src, **_legacy_attrs("JS", args, attributes))
-
-
-class CSS(metaclass=_ProducesAsset):
-    """
-    Deprecated, produces a :class:`Stylesheet` (or an :class:`InlineStyle`
-    with ``inline=True``). Use ``Stylesheet(href, media="all", **attributes)``;
-    ``CSS()`` adds ``media="all"`` when no media is given, ``Stylesheet()``
-    doesn't.
-    """
-
-    _produces = (Stylesheet, InlineStyle)
-    _isinstance_message = (
-        "CSS is deprecated and will be removed in django-js-asset 6.0, check"
-        " against Stylesheet or InlineStyle instead."
-    )
-
-    @staticmethod
-    def _produce(href, *args, inline=False, **attributes):
-        if inline:
-            _deprecated(
-                "CSS(..., inline=True) is deprecated and will be removed in"
-                " django-js-asset 6.0, use InlineStyle(css, **attrs) instead."
-            )
-        else:
-            _deprecated(
-                "CSS() is deprecated and will be removed in django-js-asset 6.0,"
-                ' use Stylesheet(href, media="all", **attrs) instead (from'
-                " django.forms on Django >= 6.1, from js_asset otherwise). Pass"
-                " the media explicitly: Stylesheet() has no default media, and"
-                ' media="all" is what de-duplicates it against paths in'
-                ' css={"all": [...]}.'
-            )
-        if args:
-            attributes["media"], *args = args
-        attributes = _legacy_attrs("CSS", args, attributes)
-        attributes.setdefault("media", "all")
-        if inline:
-            return InlineStyle(href, **attributes)
-        return Stylesheet(href, **attributes)
 
 
 def _json_content(data):
@@ -217,33 +138,13 @@ class JSON(MediaAsset):
         # isn't worth it, data blocks are few and mostly differ in their id.
         return hash(frozenset(self.attributes.items()))
 
-    def render(self, *, attrs=None, nonce=""):
-        if nonce:
-            warnings.warn(
-                f"{self.__class__.__name__}.render(nonce=...) is deprecated, use"
-                " render(attrs={'nonce': ...}) instead.",
-                RemovedInDjangoJsAsset60Warning,
-                stacklevel=2,
-            )
-            attrs = {"nonce": nonce} | (attrs or {})
+    def render(self, *, attrs=None):
         # Django's ``MediaAsset.render(attrs=)`` doesn't exist on 5.2 and 6.0.
-        # Raise on conflicting attributes like it does.
-        if attrs and (conflicts := attrs.keys() & self.attributes.keys()):
-            raise ValueError(
-                f"{self.__class__.__qualname__} has conflicting attributes: "
-                + ", ".join(sorted(conflicts))
-            )
-        return format_html(
-            self.element_template,
-            path=self.path,
-            attributes=flatatt((attrs or {}) | self.attributes),
-        )
+        return _render_with_attrs(self, attrs)
 
     def __str__(self):
         return self.render()
 
-
-_IMPORTMAP_KEYS = {"imports", "scopes", "integrity"}
 
 # Paths which are used as they are instead of being passed through ``static()``:
 # URLs with a scheme (the same check as Django's
@@ -259,15 +160,6 @@ def _resolve(path):
     if _URL_WITH_SCHEME.match(path) or path.startswith("/"):
         return path
     return static(path)
-
-
-def _is_full_importmap(imports):
-    # Specifiers map to paths (strings), the top-level keys of a full import
-    # map to dictionaries, so the two cannot be confused.
-    return any(
-        key in _IMPORTMAP_KEYS and isinstance(value, dict)
-        for key, value in imports.items()
-    )
 
 
 @html_safe
@@ -288,28 +180,20 @@ class ImportMap:
     """
 
     def __init__(self, imports=None, *, scopes=None, integrity=None, **attributes):
-        if (
-            imports is not None
-            and scopes is None
-            and integrity is None
-            and _is_full_importmap(imports)
-        ):
-            warnings.warn(
-                "Passing a full import map to ImportMap() is deprecated, pass"
-                " the imports and the scopes= and integrity= keyword arguments"
-                " instead: ImportMap(imports, scopes=..., integrity=...).",
-                RemovedInDjangoJsAsset60Warning,
-                stacklevel=2,
+        # Specifiers map to paths, so a dictionary is a full import map, which
+        # ImportMap() doesn't take anymore. It would render as garbage.
+        if imports and any(isinstance(value, dict) for value in imports.values()):
+            raise TypeError(
+                "ImportMap() takes the imports, pass scopes= and integrity= as"
+                " keyword arguments: ImportMap(imports, scopes=..., integrity=...)."
             )
-            data = imports
-        else:
-            data = {}
-            if imports:
-                data["imports"] = imports
-            if scopes:
-                data["scopes"] = scopes
-            if integrity:
-                data["integrity"] = integrity
+        data = {}
+        if imports:
+            data["imports"] = imports
+        if scopes:
+            data["scopes"] = scopes
+        if integrity:
+            data["integrity"] = integrity
         if "type" in attributes:
             raise ValueError("ImportMap doesn't accept a type attribute.")
         # Copy the data, import maps must not change when the caller's dict does.
@@ -337,21 +221,10 @@ class ImportMap:
     def __repr__(self):
         return f"{type(self).__qualname__}({self._data!r})"
 
-    def render(self, *, attrs=None, nonce=""):
-        if nonce:
-            warnings.warn(
-                "ImportMap.render(nonce=...) is deprecated, use"
-                " render(attrs={'nonce': ...}) instead.",
-                RemovedInDjangoJsAsset60Warning,
-                stacklevel=2,
-            )
-            attrs = {"nonce": nonce} | (attrs or {})
+    def render(self, *, attrs=None):
         # Like Django's ``MediaAsset.render(attrs=)``. ``type`` is always
         # ``importmap``, a second one would be ignored by browsers.
-        if attrs and (conflicts := attrs.keys() & {"type", *self.attributes}):
-            raise ValueError(
-                "ImportMap has conflicting attributes: " + ", ".join(sorted(conflicts))
-            )
+        _check_conflicts(self, attrs, {"type", *self.attributes})
         # Copy, resolving the paths must not change the import map.
         data = dict(self._data)
         if "imports" in data:
