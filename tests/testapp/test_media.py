@@ -303,6 +303,8 @@ class MediaTest(TestCase):
         self.assertEqual(request_media.render(), APP_JS.format(nonce("xyz")))
         # The shared (e.g. cached widget) media is left untouched.
         self.assertEqual(media.nonce, "")
+        # ``None`` removes the nonce instead of keeping it.
+        self.assertEqual(request_media.with_nonce(None).render(), APP_JS.format(""))
 
     def test_html_safe_strings_dedupe_and_merge(self):
         # Mirrors Django's own #37262 tests: html-safe strings survive
@@ -394,6 +396,7 @@ class LazyNonceTest(TestCase):
         # CSP header only carries a nonce if one was actually used.
         lazy = LazyNonce("l@zy")
         self.assertEqual(Media().render(attrs={"nonce": lazy}), "")
+        self.assertEqual(Media(css={"all": []}).render(attrs={"nonce": lazy}), "")
         self.assertFalse(lazy)
 
     @skipIf(nonce_attr is None, "Django < 6.1 has no built-in CSP support")
@@ -476,7 +479,7 @@ class GetItemTest(TestCase):
             media["json"]
 
     def test_html_safe_strings_in_subsets(self):
-        # Django 6.1.0 and main mangle html-safe strings when normalizing, and
+        # Django 6.1.0 mangles html-safe strings when normalizing, and
         # ``forms.Media.__getitem__`` normalizes the subset again.
         media = Media(js=[HTML_SAFE_JS])
         self.assertEqual(media["js"].render(), HTML_SAFE_JS)

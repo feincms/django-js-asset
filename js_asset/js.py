@@ -142,9 +142,6 @@ class JSON(MediaAsset):
         # Django's ``MediaAsset.render(attrs=)`` doesn't exist on 5.2 and 6.0.
         return _render_with_attrs(self, attrs)
 
-    def __str__(self):
-        return self.render()
-
 
 # Paths which are used as they are instead of being passed through ``static()``:
 # URLs with a scheme (the same check as Django's

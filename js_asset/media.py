@@ -98,7 +98,10 @@ class Media(forms.Media):
 
     def with_nonce(self, nonce):
         """Return a copy of this media carrying the given CSP nonce."""
-        return self.from_media(self, nonce=nonce)
+        clone = self.from_media(self)
+        # Not passed to ``from_media``, which keeps the nonce for ``None``.
+        clone.nonce = nonce
+        return clone
 
     # -- Addition ---------------------------------------------------------
 
@@ -137,7 +140,7 @@ class Media(forms.Media):
             # and used by the admin as ``{% csp_nonce_attr media.js %}`` --
             # would drop our type, and with it the nonce. Building the subset
             # through this class also keeps html-safe strings verbatim, which
-            # ``forms.Media``'s normalization mangles on Django 6.1.0 and main.
+            # ``forms.Media``'s normalization mangles on Django 6.1.0.
             return type(self)(nonce=self.nonce, **{name: getattr(self, "_" + name)})
         return super().__getitem__(name)
 
@@ -205,17 +208,21 @@ class Media(forms.Media):
             # media does not generate a nonce (and add it to the CSP header).
             # ``isinstance`` is no use for the check: a lazy object reports the
             # wrapped value's class -- and evaluates itself while doing so.
-            nonce = (
-                str(nonce)
-                if any(self._js_lists) or any(self._css_lists) or self._importmap
-                else ""
-            )
+            nonce = str(nonce) if self._has_assets() else ""
         return nonce
+
+    def _has_assets(self):
+        # ``css={"all": []}`` is a non-empty dict without any assets.
+        return (
+            self._importmap is not None
+            or any(self._js_lists)
+            or any(any(css.values()) for css in self._css_lists)
+        )
 
     @staticmethod
     def _render_asset(asset, attrs):
-        if isinstance(asset, MediaAsset):
-            return _render_with_attrs(asset, attrs) if attrs else asset.__html__()
+        if attrs and isinstance(asset, MediaAsset):
+            return _render_with_attrs(asset, attrs)
         # Any other asset follows Django's plain ``__html__`` media contract
         # (an object that only knows how to render itself). Mirror
         # ``forms.Media``'s fallback so such assets keep working -- the

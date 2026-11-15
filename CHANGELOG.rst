@@ -21,6 +21,10 @@ depend on packages still using the removed APIs pin ``django-js-asset<6``.
   ``Media(importmap=...)``.
 - ``RemovedInDjangoJsAsset60Warning`` is no longer emitted. It is kept so that
   warning filters referencing it keep working and will be removed in 6.1.
+- ``Media.with_nonce(None)`` removes the nonce instead of keeping the
+  existing one.
+- Rendering media whose ``css`` only contains empty lists, e.g.
+  ``css={"all": []}``, no longer generates a lazy CSP nonce.
 
 5.0 (2026-10-26)
 ~~~~~~~~~~~~~~~~

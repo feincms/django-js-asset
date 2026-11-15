@@ -118,7 +118,7 @@ points at the caller.
   (`{{ media.importmap }}`/`{{ media.css }}`/`{{ media.js }}`) are overridden
   for exactly that reason —
   Django's `__getitem__` hardcodes `forms.Media` (and re-normalizes the
-  subset, mangling html-safe strings on 6.1.0/main), so ours builds the subset
+  subset, mangling html-safe strings on 6.1.0), so ours builds the subset
   through `type(self)`. Everything that creates a new media uses `type(self)`. Add a test to
   `GetItemTest`/`RenderPartsTest` when a new accessor appears.
 - Import maps are merged in the order media objects are added together, in
