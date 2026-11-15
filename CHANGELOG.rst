@@ -7,6 +7,21 @@ Change log
 Next version
 ~~~~~~~~~~~~
 
+django-js-asset 6.0 removes everything deprecated in 5.x. Projects which
+depend on packages still using the removed APIs pin ``django-js-asset<6``.
+
+- Removed ``JS`` and ``CSS``. Use ``Script(src, **attrs)``,
+  ``Stylesheet(href, media="all", **attrs)`` and ``InlineStyle(css, **attrs)``.
+- Removed ``render(nonce=...)`` of ``Media``, ``ImportMap`` and ``JSON``, use
+  ``render(attrs={"nonce": ...})``.
+- Passing a full import map to ``ImportMap()`` raises a ``TypeError``, use
+  ``ImportMap(imports, scopes=..., integrity=...)``.
+- Removed the helpful ``TypeError`` for import maps in ``js`` lists. They
+  still fail, with Django's ``TypeError: unhashable type``; pass them as
+  ``Media(importmap=...)``.
+- ``RemovedInDjangoJsAsset60Warning`` is no longer emitted. It is kept so that
+  warning filters referencing it keep working and will be removed in 6.1.
+
 5.0 (2026-10-26)
 ~~~~~~~~~~~~~~~~
 

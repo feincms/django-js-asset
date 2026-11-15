@@ -4,7 +4,6 @@ from django.test import TestCase
 from js_asset.js import (
     ImportMap,
     MediaAsset,
-    RemovedInDjangoJsAsset60Warning,
     static_lazy,
 )
 from js_asset.media import Media
@@ -92,11 +91,6 @@ class ImportMapTest(TestCase):
             importmap.render(attrs={"nonce": "N"}),
             f'<script type="importmap" data-x="y" nonce="N">{html}',
         )
-        with self.assertWarns(RemovedInDjangoJsAsset60Warning):
-            self.assertEqual(
-                importmap.render(nonce="N"),
-                f'<script type="importmap" data-x="y" nonce="N">{html}',
-            )
         # Attributes survive merging.
         self.assertEqual((importmap | ImportMap({})).attributes, {"data-x": "y"})
 
@@ -124,28 +118,14 @@ class ImportMapTest(TestCase):
         self.assertEqual(importmap._data, {"imports": {"a": "/static/a.js"}})
 
     def test_not_supported_in_js_lists(self):
+        # Import maps aren't hashable, so ``Media.merge`` rejects them.
         media = Media(js=[ImportMap({"a": "/static/a.js"})])
-        with self.assertRaisesMessage(TypeError, "Media(importmap=...)"):
+        with self.assertRaisesMessage(TypeError, "unhashable"):
             str(media)
-        # Also when adopted from a plain forms.Media, e.g. of a widget.
         media = Media() + DjangoMedia(js=[ImportMap({"a": "/static/a.js"})])
-        with self.assertRaisesMessage(TypeError, "Media(importmap=...)"):
-            str(media)
-        # And when accessing ``{{ media.js }}``.
-        with self.assertRaisesMessage(TypeError, "Media(importmap=...)"):
+        with self.assertRaisesMessage(TypeError, "unhashable"):
             media["js"]
 
-    def test_deprecated_full_import_map(self):
-        with self.assertWarnsMessage(
-            RemovedInDjangoJsAsset60Warning, "full import map"
-        ):
-            importmap = ImportMap(
-                {
-                    "imports": {"a": "/a.js"},
-                    "_unknown_": "Automatically dropped when merging.",
-                }
-            )
-        self.assertEqual(
-            importmap | ImportMap({"b": "/b.js"}),
-            ImportMap({"a": "/a.js", "b": "/b.js"}),
-        )
+    def test_full_import_map_is_rejected(self):
+        with self.assertRaisesMessage(TypeError, "scopes= and integrity="):
+            ImportMap({"imports": {"a": "/a.js"}})
